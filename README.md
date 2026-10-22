@@ -4,7 +4,7 @@
 
 Choose two CSVs, a row key, and a numeric column. Rowglass shows how added rows, removed rows, and changed values account for the difference. Save the result as one interactive HTML file that works offline.
 
-[한국어 안내](README.ko.md) · [Example report](examples/report.html) · [Contributing](CONTRIBUTING.md)
+[Try the live demo](https://kwakhyun.github.io/rowglass/) · [한국어 안내](README.ko.md) · [Example report](examples/report.html) · [Contributing](CONTRIBUTING.md)
 
 ![Rowglass showing the total change and the rows behind it](docs/preview.jpg)
 
@@ -20,9 +20,11 @@ Atlas increased by 8,000 while Cedar decreased by 7,600. Their combined contribu
 
 Download and open [examples/report.html](examples/report.html) in a modern browser. It includes the example and accepts your own files. GitHub may display the HTML source; download the file first.
 
-From a checkout, use **Node.js 22 or newer**:
+Clone the repository with **Node.js 22 or newer**:
 
 ```sh
+git clone https://github.com/kwakhyun/rowglass.git
+cd rowglass
 npm test
 npm run build
 ```

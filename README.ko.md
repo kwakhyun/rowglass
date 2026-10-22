@@ -1,5 +1,7 @@
 # Rowglass
 
+[브라우저에서 바로 사용](https://kwakhyun.github.io/rowglass/) | [GitHub 저장소](https://github.com/kwakhyun/rowglass)
+
 **CSV 합계의 차이를 행별로 확인하세요.**
 
 두 CSV 파일과 행을 구분할 키, 합산할 숫자 열을 고르면 합계가 얼마나 달라졌는지 보여줍니다. 추가된 행, 삭제된 행, 기존 행의 값 변경을 나눠 확인하고, 결과를 오프라인에서 열리는 HTML 파일 하나로 저장할 수 있습니다.

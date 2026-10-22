@@ -21,5 +21,13 @@
     "test": "node --test",
     "demo": "node bin/rowglass.mjs demo --out demo.html --force",
     "build": "node scripts/build.mjs"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kwakhyun/rowglass.git"
+  },
+  "homepage": "https://kwakhyun.github.io/rowglass/",
+  "bugs": {
+    "url": "https://github.com/kwakhyun/rowglass/issues"
   }
 }
