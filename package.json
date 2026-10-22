@@ -1,0 +1,25 @@
+{
+  "name": "@rowglass/cli",
+  "version": "0.1.0",
+  "description": "Explain the exact difference between two CSV totals in a private, shareable HTML report.",
+  "type": "module",
+  "license": "MIT",
+  "engines": {
+    "node": ">=22"
+  },
+  "bin": {
+    "rowglass": "./bin/rowglass.mjs"
+  },
+  "files": [
+    "bin/",
+    "src/",
+    "examples/",
+    "README*",
+    "LICENSE"
+  ],
+  "scripts": {
+    "test": "node --test",
+    "demo": "node bin/rowglass.mjs demo --out demo.html --force",
+    "build": "node scripts/build.mjs"
+  }
+}

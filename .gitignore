@@ -1,0 +1,17 @@
+node_modules/
+coverage/
+.DS_Store
+npm-debug.log*
+.rowglass-*.tmp
+
+# Local inputs and reports from the README commands.
+/before.csv
+/after.csv
+/before.tsv
+/after.tsv
+/report*.html
+/report*.json
+/demo.html
+/rowglass.html
+
+# Keep dist/index.html, examples/report.html, and docs/preview.jpg as demo assets.
