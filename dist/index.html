@@ -1,31 +1,134 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; connect-src 'none'; base-uri 'none'; form-action 'none'">
-<meta name="description" content="Explain a changed CSV total, down to the rows. A local, offline comparison tool.">
-<title>Rowglass — Follow the difference</title><style>:root{color-scheme:light;--paper:#f5f5ef;--ink:#1a3028;--muted:#65746c;--line:#d9dfd7;--green:#23654d;--light:#e8eee7;--orange:#ae5133;--serif:Georgia,'Times New Roman',serif}*{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink);font:14px/1.5 -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}button,input,select{font:inherit}button,a,input,select{outline-offset:4px}button{cursor:pointer;border:1px solid var(--line);background:white;border-radius:6px;padding:9px 14px;color:var(--ink)}button:hover{border-color:var(--green);background:#edf2eb}button:disabled{opacity:.45;cursor:not-allowed}.primary{background:var(--ink);color:#fff;border-color:var(--ink)}.primary:hover{background:var(--green);color:white}.text-button{background:none;border-color:transparent}.topbar{height:80px;max-width:1440px;padding:0 52px;margin:auto;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--line)}.brand{font-size:26px;letter-spacing:-1px;font-weight:700;color:var(--ink);text-decoration:none;display:flex;gap:9px;align-items:center}.mark{background:var(--ink);color:var(--paper);width:30px;height:30px;line-height:24px;font-size:32px;text-align:center;border-radius:7px}.version{font:11px/1.2 monospace;letter-spacing:0;border:1px solid var(--line);border-radius:4px;padding:3px 5px;margin-left:4px;color:var(--muted)}.top-actions{display:flex;gap:24px;align-items:center}.local{font-size:12px;color:var(--muted)}.local i{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--green);margin-right:6px}main{max-width:1280px;margin:auto;padding:44px 36px 0}.intro{display:flex;align-items:center;justify-content:space-between;margin-bottom:30px}.eyebrow{font-size:10px;letter-spacing:1.8px;font-weight:650;margin:0 0 10px}h1{font:normal 48px/1.15 var(--serif);letter-spacing:-1.6px;margin:0 0 12px}.subhead{margin:0;color:var(--muted);font-size:15px}h2{font-size:17px;letter-spacing:-.35px;margin:0}.input-panel{background:#fff;border:1px solid var(--line);border-radius:10px;padding:18px 22px;margin-bottom:32px}.file-pair{display:flex;gap:16px;align-items:center}.file-label{position:relative;display:flex;align-items:center;gap:12px;flex:1;min-width:0;padding:12px 14px;border:1px dashed #b6c2b7;border-radius:6px;background:#fbfcf8;cursor:pointer}.file-label:hover{background:var(--light)}.file-label>span:nth-child(2){min-width:0}.file-label strong{font-size:11px;letter-spacing:.6px;text-transform:uppercase;display:block}.file-label span span{display:block;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;max-width:360px}.file-label input{position:absolute;inset:0;opacity:0;width:100%;cursor:pointer}.file-label:focus-within{outline:2px solid var(--green);outline-offset:3px}.step{font:18px var(--serif);color:#7d8d7d}.pair-arrow{font-size:21px;color:#8a998e}.config{display:flex;align-items:end;gap:12px;margin-top:14px}.config label{font-size:11px;color:var(--muted);display:flex;flex-direction:column;gap:4px;flex:1;min-width:0}.config label:first-child{flex:.65}select{min-width:0;width:100%;border:1px solid var(--line);border-radius:5px;padding:8px;background:white;color:var(--ink);font-size:12px}.config button{font-size:12px}.input-note{font-size:11px;color:var(--muted);margin:10px 0 0}.input-note:empty{display:none}#error{font-size:13px;background:#fff1e9;border-left:3px solid var(--orange);padding:10px 12px;margin:12px 0 0;color:#8b351c}.report-heading{display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:12px;font-size:11px;color:var(--muted)}.report-heading>div{display:flex;gap:9px;align-items:center;min-width:0}#report-source{overflow-wrap:anywhere}.badge{background:#e7e4d5;color:#6a654a;padding:3px 7px;font-size:9px;letter-spacing:1px;white-space:nowrap;border-radius:3px}.badge[hidden]{display:none}.verified{color:var(--green);white-space:nowrap}.metrics{display:grid;grid-template-columns:1fr 1fr 1fr;border:1px solid var(--line);border-radius:9px;overflow:hidden;margin-bottom:22px}.metric{padding:23px 25px;background:#fff;border-right:1px solid var(--line);min-width:0}.metric:last-child{border:0}.metric>span{font-size:12px;color:var(--muted)}.metric strong{display:block;font-weight:450;font-size:34px;line-height:1.2;letter-spacing:-1px;margin:10px 0;overflow-wrap:anywhere;font-variant-numeric:tabular-nums}.metric small{font-size:11px;color:var(--muted)}.metric.focus{background:#e9eee6}.analysis-grid{display:grid;grid-template-columns:minmax(0,2.1fr) minmax(230px,1fr);gap:20px;margin-bottom:26px}.chart-panel{border:1px solid var(--line);border-radius:9px;background:white;padding:22px 24px 17px;min-width:0}.section-heading{display:flex;justify-content:space-between;align-items:center;gap:10px}.section-heading p{margin:5px 0 0;font-size:11px;color:var(--muted)}.mono{font:11px ui-monospace,monospace;color:var(--muted);max-width:120px;overflow-wrap:anywhere}#waterfall{margin:6px -4px 0}#waterfall svg{display:block;width:100%;height:auto}.chart-bar{cursor:pointer}.chart-bar:hover rect,.chart-bar:focus rect{opacity:.72}.equation{border-top:1px solid var(--line);padding-top:12px;font:11px/1.6 ui-monospace,monospace;color:var(--muted);overflow-wrap:anywhere}.drivers{padding:22px 20px;background:#eaece2;border:1px solid #e0e3d7;border-radius:9px}.drivers h2{font:23px/1.2 var(--serif);letter-spacing:-.5px}.aside-note{font-size:11px;color:var(--muted);margin:8px 0 20px}.driver{width:100%;text-align:left;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:5px 12px;background:transparent;border:0;border-top:1px solid #d3dacd;padding:13px 0;border-radius:0}.driver:hover{background:#e1e7d9;border-color:#d3dacd}.driver strong{font-size:12px;font-weight:600;overflow-wrap:anywhere}.driver>span{font-size:13px;font-variant-numeric:tabular-nums}.driver small{grid-column:1/-1;color:var(--muted);font-size:10px}.positive{color:var(--green)}.negative{color:var(--orange)}.rows-panel{background:white;border:1px solid var(--line);border-radius:9px;overflow:hidden}.rows-panel>.section-heading{padding:22px 24px 18px}.count-tag{font-size:11px;font-weight:400;border:1px solid var(--line);border-radius:12px;padding:2px 7px;margin-left:5px;color:var(--muted)}.table-tools{display:flex;justify-content:space-between;gap:12px;padding:0 24px 17px;align-items:center}.filters{display:flex;gap:5px;flex-wrap:wrap}.filters button{border-color:transparent;padding:6px 10px;font-size:11px;background:transparent;color:var(--muted)}.filters button.active{background:var(--light);color:var(--green);border-color:#d9e3d4}.filters button span{margin-left:5px;opacity:.7}.search-label input{background:#fafbf8;border:1px solid var(--line);border-radius:5px;padding:7px 10px;font-size:11px;width:200px}.table-wrap{overflow-x:auto}table{width:100%;border-collapse:collapse;text-align:left;font-size:12px;white-space:nowrap}th{background:#f6f8f3;font-size:10px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);padding:12px 24px;font-weight:550;border-block:1px solid var(--line)}td{padding:13px 24px;border-bottom:1px solid #eef0ea;font-variant-numeric:tabular-nums}tbody tr:hover{background:#fafbf7}.number{text-align:right}.key-button{padding:0;border:0;background:none;font-size:12px;text-align:left;font-weight:550;max-width:330px;white-space:normal;overflow-wrap:anywhere}.key-button:hover{background:none;text-decoration:underline}.status-pill{font-size:10px;border-radius:4px;padding:3px 7px;background:#f0f2ed;color:var(--muted)}.status-pill.added{color:#25664b;background:#e9f2e8}.status-pill.removed{color:#9e432b;background:#f9eee6}.status-pill.changed{color:#705d2d;background:#f3f0df}.pagination{padding:13px 24px;display:flex;align-items:center;justify-content:space-between;font-size:11px;color:var(--muted)}.pagination button{font-size:11px;padding:6px 9px;margin-left:5px}.method{display:grid;grid-template-columns:1fr 2fr;gap:10px 24px;margin:30px 0;padding:0 4px}.method h2{font:21px var(--serif);grid-row:1/4}.method p{font-size:11px;color:var(--muted);margin:0}.method p:empty{display:none}footer{border-top:1px solid var(--line);padding:20px 0 26px;display:flex;justify-content:space-between;font-size:10px;color:var(--muted)}.brand-small{font-weight:700;font-size:14px;color:var(--ink)}dialog{border:1px solid var(--line);border-radius:12px;max-width:min(540px,90vw);padding:32px;color:var(--ink);box-shadow:0 20px 80px #14291f30}dialog::backdrop{background:#182b2455;backdrop-filter:blur(2px)}dialog h2{font:28px var(--serif);margin-bottom:20px;overflow-wrap:anywhere}.dialog-close{position:absolute;right:12px;top:8px;border:0;background:none;font-size:22px}.detail-item{padding:12px 0;display:flex;gap:30px;justify-content:space-between;border-top:1px solid var(--line);overflow-wrap:anywhere}.detail-item span{font-size:12px;color:var(--muted)}.detail-item strong{font-variant-numeric:tabular-nums}.detail-item:last-child strong{color:var(--green)}#detail-note{font-size:12px;color:var(--muted);margin-bottom:0}.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}.empty{padding:36px;text-align:center;color:var(--muted)}@media(max-width:850px){.topbar{padding:0 24px;height:68px}main{padding:30px 22px 0}h1{font-size:39px}.analysis-grid{grid-template-columns:1fr}.drivers{display:none}.metric{padding:18px}.metric strong{font-size:28px}.table-tools{flex-wrap:wrap}.method{grid-template-columns:1fr}.method h2{grid-row:auto}.local{display:none}.config{flex-wrap:wrap}.config label{flex-basis:25%}.config button{width:100%}}@media(max-width:520px){main{padding:25px 14px 0}.topbar{padding:0 16px}.brand{font-size:22px}.intro{display:block}h1{font-size:35px}.intro>.text-button{padding-left:0;margin-top:14px}.subhead{font-size:13px}.input-panel{padding:14px}.file-pair{gap:8px}.pair-arrow{font-size:14px}.file-label{padding:9px;gap:7px}.file-label span span{max-width:105px}.step{display:none}.metrics{grid-template-columns:1fr 1fr}.metric.focus{grid-column:1/-1;border-top:1px solid var(--line)}.metric strong{font-size:26px}.report-heading{align-items:start}.verified{font-size:9px}.chart-panel{padding:16px 12px}.rows-panel>.section-heading{padding:18px 14px}.rows-panel h2{font-size:15px}.table-tools{padding:0 14px 14px}th,td{padding:12px 14px}.pagination{padding:12px}.section-heading>.text-button{font-size:10px;padding:5px}.search-label,.search-label input{width:100%}footer>span:nth-child(2){display:none}.mono{max-width:80px}}
-@media(max-width:850px){.config label:first-child{flex:1 1 20%;min-width:90px}.intro>.text-button{white-space:nowrap}}
-@media(max-width:650px){.metrics{grid-template-columns:1fr 1fr}.metric.focus{grid-column:1/-1;border-top:1px solid var(--line)}.metric strong{font-size:clamp(22px,4.6vw,30px)}.intro{gap:12px}}
+<html lang="en"><head><!--
+Lucide SVG icon licenses. Source: https://github.com/lucide-icons/lucide
+ISC License
 
-.source-link{color:var(--muted);text-decoration:none}.source-link:hover{text-decoration:underline}
+Copyright (c) 2026 Lucide Icons and Contributors
+
+Permission to use, copy, modify, and/or distribute this software for any
+purpose with or without fee is hereby granted, provided that the above
+copyright notice and this permission notice appear in all copies.
+
+THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+
+===
+
+The following Lucide icons are derived from the Feather project:
+
+airplay, alert-circle, alert-octagon, alert-triangle, aperture, arrow-down-circle, arrow-down-left, arrow-down-right, arrow-down, arrow-left-circle, arrow-left, arrow-right-circle, arrow-right, arrow-up-circle, arrow-up-left, arrow-up-right, arrow-up, at-sign, calendar, cast, check, chevron-down, chevron-left, chevron-right, chevron-up, chevrons-down, chevrons-left, chevrons-right, chevrons-up, circle, clipboard, clock, code, columns, command, compass, corner-down-left, corner-down-right, corner-left-down, corner-left-up, corner-right-down, corner-right-up, corner-up-left, corner-up-right, crosshair, database, divide-circle, divide-square, dollar-sign, download, external-link, feather, frown, hash, headphones, help-circle, info, italic, key, layout, life-buoy, link-2, link, loader, lock, log-in, log-out, maximize, meh, minimize, minimize-2, minus-circle, minus-square, minus, monitor, moon, more-horizontal, more-vertical, move, music, navigation-2, navigation, octagon, pause-circle, percent, plus-circle, plus-square, plus, power, radio, rss, search, server, share, shopping-bag, sidebar, smartphone, smile, square, table-2, tablet, target, terminal, trash-2, trash, triangle, tv, type, upload, x-circle, x-octagon, x-square, x, zoom-in, zoom-out
+
+The MIT License (MIT) (for the icons listed above)
+
+Copyright (c) 2013-present Cole Bemis
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+--><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; connect-src 'none'; base-uri 'none'; form-action 'none'">
+<meta name="theme-color" content="#f7f8fa"><meta name="description" content="See why your CSV totals changed. Compare files locally and trace every difference to a row.">
+<title>Rowglass — Your totals, explained</title><style>:root{color-scheme:light;--bg:#f7f8fa;--surface:#fff;--ink:#191f28;--muted:#626d7b;--soft:#8b95a1;--line:#e5e8eb;--blue:#2563eb;--blue-dark:#1d4ed8;--blue-soft:#eff5ff;--positive:#2563eb;--negative:#b45323;--radius:20px;--shadow:0 8px 32px #19263a06;--font:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
+*{box-sizing:border-box}html{scroll-behavior:smooth;scroll-padding-top:96px}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 var(--font);-webkit-font-smoothing:antialiased}button,input,select{font:inherit}button,a,input,select,summary{touch-action:manipulation}button{cursor:pointer}button:disabled{cursor:not-allowed;opacity:.42}a{color:inherit;text-decoration:none}button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visible,[tabindex]:focus-visible{outline:3px solid #4b8dff;outline-offset:4px}h1,h2,h3,p{margin:0}h2{font-size:21px;line-height:1.35;letter-spacing:-.6px;font-weight:650}h3{font-size:18px;letter-spacing:-.4px}button{border:0}svg.icon{display:inline-block;flex-shrink:0;vertical-align:middle}button .icon,a .icon{pointer-events:none}[hidden]{display:none!important}.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}.skip-link{position:fixed;top:8px;left:12px;z-index:100;background:#fff;padding:12px 20px;transform:translateY(-150%);border:2px solid var(--blue);border-radius:8px}.skip-link:focus{transform:none}
+.topbar{height:80px;background:#fff;border-bottom:1px solid var(--line)}.topbar-inner{max-width:1280px;margin:auto;padding:0 48px;height:100%;display:flex;align-items:center;gap:22px}.brand{display:flex;align-items:center;gap:10px;font-size:25px;font-weight:720;letter-spacing:-1px}.brand-icon{display:flex;align-items:center;justify-content:center;width:33px;height:33px;color:#fff;background:var(--blue);border-radius:10px}.product-label{font-size:12px;color:var(--muted);border-left:1px solid var(--line);padding-left:22px}.topbar nav{margin-left:auto;display:flex;gap:28px;align-items:center}.nav-link{display:flex;align-items:center;gap:4px;font-size:13px;color:#4e5968;min-height:44px}.nav-link:hover{color:var(--blue)}.button{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:10px 17px;border-radius:12px;font-size:14px;font-weight:600;line-height:1.3;white-space:nowrap;transition:background .15s ease,box-shadow .15s ease,transform .15s ease}.button:active:not(:disabled){transform:scale(.985)}.primary{background:var(--blue);color:white}.primary:hover:not(:disabled){background:var(--blue-dark);box-shadow:0 4px 12px #2563eb20}.secondary{background:white;color:#333d4b;box-shadow:inset 0 0 0 1px #dfe3e8}.secondary:hover:not(:disabled){background:#f4f6f8}.quiet{background:transparent;color:var(--blue)}.quiet:hover:not(:disabled){background:var(--blue-soft)}.quiet.muted{color:var(--muted)}.small{font-size:13px}.icon-button{width:44px;height:44px;border-radius:12px;background:transparent;color:var(--muted);display:inline-flex;align-items:center;justify-content:center;flex-shrink:0}.icon-button:hover:not(:disabled){background:#f2f4f6;color:var(--ink)}
+main{max-width:1280px;padding:46px 48px 0;margin:auto}.page-heading{display:flex;align-items:center;justify-content:space-between;gap:24px;margin-bottom:27px}.eyebrow{font-size:12px;font-weight:600;color:var(--muted);margin-bottom:9px}.page-heading h1{font-size:34px;line-height:1.2;letter-spacing:-1.3px;font-weight:700}.page-description{font-size:15px;color:var(--muted);margin-top:10px}.export-group{display:flex;flex-direction:column;align-items:flex-end;gap:8px;padding-top:10px}.export-group p{color:var(--muted);font-size:11px;max-width:260px;text-align:right}.sample-banner{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:12px 18px;background:var(--blue-soft);border-radius:14px;margin-bottom:20px}.sample-banner>div{display:flex;align-items:center;gap:13px;color:var(--blue)}.sample-banner p{font-size:13px;color:#466187}.sample-banner strong{font-weight:600;color:#315584;margin-right:7px}.sample-banner .button{font-size:13px;min-height:40px;padding:8px 11px}.draft-notice{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:15px 20px;border:1px solid #f1d7b6;background:#fff8ec;border-radius:14px;margin-bottom:20px}.draft-notice p{font-size:13px;color:#79522d}.draft-notice p span{display:block}.draft-notice>div{display:flex;gap:4px;flex-shrink:0}
+.overview-card{background:white;border-radius:var(--radius);box-shadow:var(--shadow);border:1px solid #eaedf0;display:grid;grid-template-columns:1.1fr 1fr;overflow:hidden}.net-result{padding:30px 34px 27px;min-width:0}.metric-caption{display:flex;align-items:center;gap:10px}.metric-caption h2{font-size:14px;font-weight:550;color:#4e5968;letter-spacing:0}.metric-tag{display:inline-block;border-radius:6px;padding:2px 7px;background:#f2f4f6;color:var(--muted);font-size:11px;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.net-amount{display:block;font-size:54px;line-height:1.15;font-weight:650;letter-spacing:-2.5px;font-variant-numeric:tabular-nums;margin:14px 0 13px;overflow-wrap:anywhere}.positive{color:var(--positive)}.negative{color:var(--negative)}.net-context{display:flex;align-items:center;gap:12px;flex-wrap:wrap;color:var(--muted);font-size:12px}.percent-badge{padding:4px 8px;border-radius:6px;background:#f2f5fa;color:#4e6380;font-weight:550}.summary-description{color:var(--muted);font-size:13px;margin-top:13px}.comparison-totals{display:flex;align-items:center;gap:24px;padding:32px;border-left:1px solid #f0f2f5;margin:23px 0}.snapshot-total{min-width:0;flex:1}.snapshot-label{font-size:13px;color:var(--muted)}.snapshot-total strong{display:block;font-size:27px;font-weight:600;line-height:1.3;letter-spacing:-.8px;margin:9px 0 11px;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}.filename{display:block;color:#4e5968;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:210px}.snapshot-total small{display:block;color:var(--muted);font-size:11px;margin-top:3px}.totals-arrow{color:#b0b8c1;flex-shrink:0}.overview-foot{grid-column:1/-1;display:flex;justify-content:space-between;align-items:center;gap:12px;background:#fcfcfd;border-top:1px solid #f0f2f5;padding:13px 32px;color:var(--muted);font-size:12px}.overview-foot>span{display:inline-flex;align-items:center;gap:7px}.overview-foot .icon{color:#3c7792}.overview-foot strong{font-weight:550;color:#4e5968;overflow-wrap:anywhere}
+.breakdown-section{margin-top:34px}.section-heading{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:17px}.section-heading p{color:var(--muted);font-size:13px;margin-top:5px}.section-hint{font-size:12px;color:var(--muted)}.contributions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}.contribution{display:flex;flex-direction:column;text-align:left;background:white;border:1px solid var(--line);border-radius:16px;padding:19px 21px 16px;min-width:0;color:var(--ink);transition:border-color .15s,box-shadow .15s,background .15s}.contribution:hover{border-color:#a6bff5;box-shadow:0 4px 16px #1e3b6208}.contribution[aria-pressed=true]{border-color:#72a0ff;background:#f7faff;box-shadow:0 0 0 1px #72a0ff}.contribution-top{display:flex;align-items:center;justify-content:space-between;gap:10px}.contribution-label{font-size:14px;font-weight:550;color:#4e5968}.contribution-top .icon{color:#b0b8c1}.contribution>strong{font-size:28px;line-height:1.2;letter-spacing:-.8px;font-weight:600;margin:11px 0;overflow-wrap:anywhere;font-variant-numeric:tabular-nums}.contribution-description{font-size:11px;color:var(--muted);display:flex;justify-content:space-between;gap:6px}.contribution-description>span{white-space:nowrap}.contribution-track{display:block;margin-top:16px;height:4px;background:#f1f3f6;border-radius:5px;overflow:hidden}.contribution-track>span{display:block;height:100%;background:#88aefa;border-radius:5px}#removed-bar{background:#d7a279}#changed-bar{background:#9ca9b7}.calculation{margin-top:14px;background:transparent;border-bottom:1px solid var(--line)}summary{cursor:pointer;list-style:none;display:flex;align-items:center;gap:9px;min-height:48px;font-size:13px;font-weight:500;color:var(--muted)}summary::-webkit-details-marker{display:none}.calculation>summary{padding:2px 2px 10px}.summary-chevron{display:flex;margin-left:auto;transition:transform .18s}details[open]>summary .summary-chevron{transform:rotate(90deg)}.calculation-content{background:white;border:1px solid var(--line);border-radius:14px;padding:18px 24px;margin-bottom:20px}.calculation-note{font-size:12px;color:var(--muted)}.chart-scroll{overflow-x:auto}.chart-scroll svg{display:block;width:100%;min-width:620px;height:auto;max-height:280px}.chart-bar{cursor:pointer}.chart-bar:hover rect,.chart-bar:focus rect{opacity:.7}.equation{font:13px/1.7 ui-monospace,monospace;padding:12px 0;color:#4e5968;border-top:1px solid #eef0f3;overflow-wrap:anywhere}
+.drivers-section{margin-top:26px;margin-bottom:30px}.drivers-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}.driver{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:5px 16px;background:#fff;border:1px solid var(--line);border-radius:14px;text-align:left;padding:18px 21px;transition:border-color .15s,background .15s;min-width:0}.driver:hover{border-color:#a6bff5;background:#fbfdff}.driver-label{grid-column:1/-1;font-size:11px;color:var(--muted)}.driver-key{color:var(--ink);font-size:15px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.driver-amount{font-weight:600;font-size:18px;letter-spacing:-.4px;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}.driver-meta{grid-column:1/-1;font-size:12px;color:var(--muted)}
+.rows-panel{background:white;border:1px solid var(--line);border-radius:var(--radius);overflow:hidden}.rows-heading{padding:26px 26px 0;margin-bottom:20px}.count-tag{display:inline-block;font-size:12px;background:#f2f4f6;border-radius:7px;color:#6b7684;vertical-align:middle;padding:3px 8px;letter-spacing:0;font-weight:500;margin-left:7px}.table-tools{padding:0 26px 20px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}.filters{display:flex;gap:4px;flex-wrap:wrap}.filter-chip{min-height:40px;display:flex;align-items:center;justify-content:center;gap:6px;padding:8px 12px;background:transparent;color:var(--muted);border-radius:9px;font-size:13px;white-space:nowrap;border:1px solid transparent}.filter-chip:hover{background:#f6f8fa;color:#333d4b}.filter-chip.active{background:#edf4ff;color:#245bb8;font-weight:600}.filter-count{font-size:11px;opacity:.8}.table-controls{display:flex;gap:10px;align-items:center}.search-wrap{position:relative;display:flex;align-items:center;width:220px}.search-wrap>.icon{position:absolute;left:12px;color:var(--muted);pointer-events:none}.search-wrap input{border:1px solid #e5e8eb;background:#fafbfc;min-height:42px;width:100%;padding:10px 38px;border-radius:10px;color:var(--ink);font-size:13px}.search-wrap input::-webkit-search-cancel-button{display:none}.search-wrap input::placeholder{color:var(--muted)}.clear-search{position:absolute;right:1px;top:1px;width:40px;height:40px;display:flex;align-items:center;justify-content:center;background:transparent;color:var(--muted);border-radius:9px}.sort-control select{width:155px;min-height:42px;border:1px solid var(--line);border-radius:10px;padding:8px 28px 8px 11px;background:#fff;color:#4e5968;font-size:12px}.table-wrap{overflow-x:auto}table{width:100%;border-collapse:collapse;text-align:left;table-layout:fixed}th{background:#fafbfc;font-size:12px;color:var(--muted);font-weight:500;padding:14px 26px;border-block:1px solid #eef0f3}th:first-child{width:26%}th:nth-child(2){width:20%}th:nth-child(3),th:nth-child(4){width:17%}th:last-child{width:20%}td{padding:18px 26px;border-bottom:1px solid #f1f3f5;font-size:14px;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}tbody tr:last-child td{border-bottom:0}tbody tr:hover{background:#fbfcfe}.number{text-align:right}.key-button{font:600 14px/1.5 var(--font);background:transparent;color:#333d4b;padding:4px 0;min-height:36px;max-width:100%;text-align:left;overflow-wrap:anywhere}.key-button:hover{color:var(--blue)}td:last-child{font-weight:600}.status-pill{display:inline-flex;align-items:center;padding:4px 8px;border-radius:6px;font-size:11px;line-height:1.3;white-space:nowrap;background:#f2f4f6;color:#6b7684}.status-pill.added{background:#edf4ff;color:#275eb3}.status-pill.removed{background:#fff3e9;color:#9e5426}.status-pill.changed{background:#eff1f6;color:#5b6680}.pagination{display:flex;justify-content:space-between;align-items:center;gap:14px;padding:13px 22px;border-top:1px solid #eef0f3;color:var(--muted);font-size:12px}.pagination>div{display:flex;gap:2px;flex-shrink:0}.pagination .button{font-size:12px;color:#4e5968}.empty-state{padding:50px 24px;text-align:center}.empty-state>.icon{color:#b0b8c1;margin-bottom:14px}.empty-state h3{margin-bottom:7px}.empty-state p{font-size:13px;color:var(--muted);margin-bottom:20px}
+.method{margin-top:25px;border-bottom:1px solid var(--line);padding-bottom:8px}.method>summary{font-size:13px;color:#6b7684}.method-grid{display:grid;grid-template-columns:1fr 1fr;gap:48px;padding:14px 0 22px}.method h2{font-size:15px;letter-spacing:-.2px;margin-bottom:10px}.method p{font-size:13px;color:var(--muted);margin-bottom:10px;line-height:1.75}footer{display:flex;align-items:center;justify-content:space-between;gap:20px;padding:30px 0 35px;color:var(--muted);font-size:12px}.footer-brand{display:flex;align-items:center;gap:16px;color:#4e5968;font-weight:650;letter-spacing:-.4px}.footer-brand>span{font-weight:400;letter-spacing:0;font-size:12px;color:var(--muted)}footer>div{display:flex;gap:20px;align-items:center}footer a{display:flex;align-items:center;gap:4px;min-height:44px}footer a:hover{color:var(--blue)}
+dialog{border:0;padding:30px;border-radius:24px;color:var(--ink);background:#fff;box-shadow:0 24px 80px #10213c30;max-height:calc(100dvh - 48px);overflow:auto}dialog::backdrop{background:#14223855;backdrop-filter:blur(4px)}.comparison-dialog{width:min(720px,calc(100vw - 40px))}.dialog-header{display:flex;align-items:flex-start;justify-content:space-between;gap:16px}.dialog-header h2{font-size:28px;line-height:1.25;letter-spacing:-.9px}.dialog-header .eyebrow{margin-bottom:7px}.dialog-header .icon-button{margin:-8px -8px 0 0}.dialog-description{font-size:14px;color:var(--muted);margin:12px 0 24px}.file-pair{display:grid;grid-template-columns:minmax(0,1fr) 44px minmax(0,1fr);gap:10px;align-items:center}.file-drop{position:relative;display:flex;align-items:center;flex-direction:column;text-align:center;min-width:0;border:1.5px dashed #d3dae4;border-radius:16px;padding:17px 16px 21px;background:#fafbfc;cursor:pointer;transition:background .15s,border-color .15s}.file-drop:hover,.file-drop.is-dragging{border-color:var(--blue);background:var(--blue-soft)}.file-drop:focus-within{outline:3px solid #4b8dff;outline-offset:3px}.file-side{align-self:flex-start;font-size:12px;color:var(--muted);font-weight:550}.file-icon{display:flex;align-items:center;justify-content:center;width:50px;height:50px;border-radius:14px;background:#eef2f7;color:#8a9cb6;margin:11px 0 13px}.file-drop.is-loaded{border-style:solid;border-color:#c9daf9;background:#f8fbff}.file-drop.is-loaded .file-icon{background:#edf4ff;color:var(--blue)}.file-drop strong{font-weight:550;font-size:14px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.file-drop>span:last-of-type{font-size:12px;color:var(--muted);margin-top:5px}.file-drop input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}.swap-files{background:#f3f5f8}.mapping-fields{border:0;padding:0;margin:25px 0 0;min-width:0}.mapping-fields legend{font-size:15px;font-weight:600;padding:0;margin-bottom:14px}.mapping-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}.field{min-width:0}.field label{font-size:13px;font-weight:600;color:#333d4b}.field p{font-size:11px;color:var(--muted);margin:5px 0 10px}.field select{width:100%;height:46px;border:1px solid #d9dfe7;border-radius:10px;background:white;padding:0 12px;color:#333d4b;font-size:14px}.field small{display:block;font-size:11px;color:var(--muted);line-height:1.5;margin-top:8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-height:17px}.file-options{margin-top:20px}.file-options summary{font-size:12px;justify-content:space-between;min-height:44px}.file-options>div{padding:14px;background:#f7f8fa;border-radius:12px}.file-options label{font-size:12px;font-weight:550;display:block;margin-bottom:7px}.file-options select{min-height:44px;border:1px solid var(--line);border-radius:8px;padding:8px;background:white;width:200px;font-size:13px}.file-options p{font-size:12px;color:var(--muted);margin-top:12px;line-height:1.7}.error-message{padding:14px 16px;border-radius:12px;border:1px solid #f4c8b2;background:#fff5ef;font-size:13px;color:#943b17;line-height:1.6;margin-top:14px;overflow-wrap:anywhere}.file-status{color:var(--muted);font-size:12px;line-height:1.6;margin:10px 0 0;min-height:20px}.dialog-actions{display:flex;align-items:center;justify-content:space-between;gap:12px;border-top:1px solid var(--line);padding-top:20px;margin-top:22px}.dialog-actions>div{display:flex;gap:2px}.dialog-actions .quiet{font-size:12px;padding-inline:10px}.row-dialog{width:min(500px,calc(100vw - 40px))}.row-dialog .dialog-header{align-items:center;margin-bottom:20px}.row-dialog .dialog-header .eyebrow{margin:0}.row-dialog h2{font-size:30px;letter-spacing:-.8px;margin:12px 0 25px;overflow-wrap:anywhere}.detail-status{font-size:12px;color:var(--muted)}.detail-item{display:flex;justify-content:space-between;gap:24px;padding:16px 0;border-top:1px solid var(--line);align-items:center}.detail-item span{font-size:13px;color:var(--muted);min-width:0;overflow-wrap:anywhere}.detail-item strong{font-size:19px;font-weight:600;font-variant-numeric:tabular-nums;overflow-wrap:anywhere;text-align:right}.detail-item:last-child{margin-top:7px;padding:18px 16px;background:#f5f8fd;border:0;border-radius:12px}.detail-item:last-child strong{font-size:25px}.row-dialog #detail-note{font-size:12px;line-height:1.7;color:var(--muted);margin-top:20px}.toast{position:fixed;z-index:50;bottom:26px;left:50%;transform:translateX(-50%);background:#263446;color:#fff;padding:14px 22px;border-radius:14px;box-shadow:0 8px 30px #17263b22;font-size:13px;max-width:min(480px,calc(100vw - 32px));width:max-content}.toast:empty{display:none}
+@media(min-width:1440px){main{padding-top:54px}.net-amount{font-size:58px}}
+@media(max-width:1050px){.topbar-inner{padding-inline:28px}main{padding-inline:28px}.topbar nav{gap:18px}.product-label{display:none}.net-result{padding:27px}.comparison-totals{padding:26px;gap:16px}.snapshot-total strong{font-size:23px}.net-amount{font-size:46px}.overview-card{grid-template-columns:1fr 1fr}.contribution{padding-inline:18px}.contribution-description{flex-direction:column;gap:3px}.table-controls{flex:1;justify-content:flex-end}.search-wrap{width:200px}th,td{padding-inline:20px}.rows-heading h2{font-size:20px}}
+@media(max-width:760px){.topbar{height:68px}.topbar-inner{padding:0 20px}.topbar nav{gap:12px}.topbar .nav-link{display:none}main{padding:30px 20px 0}.page-heading{gap:16px;align-items:flex-start}.page-heading h1{font-size:29px;letter-spacing:-1px}.page-description{font-size:13px}.export-group{padding-top:0}.export-group p{font-size:10px;max-width:170px}.export-group .button{font-size:12px;padding:10px 12px}.sample-banner{align-items:flex-start}.sample-banner>div>.icon{display:none}.sample-banner p span{display:block;margin-top:3px}.sample-banner .button{font-size:12px;padding:8px}.overview-card{grid-template-columns:1fr}.net-result{padding:27px}.comparison-totals{margin:0 26px 24px;border:0;padding:20px;border-radius:14px;background:#f7f8fb}.net-amount{font-size:50px;margin:12px 0}.snapshot-total strong{font-size:25px}.overview-foot{padding:12px 24px;font-size:11px}.contributions{gap:10px}.contribution{padding:16px 14px}.contribution-label{font-size:12px}.contribution>strong{font-size:23px}.contribution-top .icon{width:14px}.contribution-description{font-size:10px}.section-heading h2{font-size:19px}.section-hint{display:none}.driver{padding:16px}.driver-amount{font-size:16px}.driver-key{font-size:14px}.rows-heading{padding:22px 20px 0}.table-tools{padding:0 16px 18px;gap:12px}.filters{width:100%;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none}.filter-chip{font-size:12px;flex-shrink:0;padding-inline:10px;min-height:44px}.table-controls{width:100%}.search-wrap{width:auto;flex:1}.sort-control select{width:145px}.method-grid{grid-template-columns:1fr;gap:18px}.footer-brand>span{display:none}.draft-notice{align-items:flex-start;flex-direction:column}.draft-notice>div{align-self:flex-end}.calculation-content{padding:16px}.chart-scroll svg{max-height:none}.row-dialog{border-radius:20px}}
+@media(max-width:600px){.page-heading{display:block;margin-bottom:20px}.export-group{margin-top:20px;flex-direction:row;align-items:center;justify-content:space-between;gap:14px}.export-group p{font-size:11px;text-align:left;max-width:180px}.sample-banner{padding:12px 14px;gap:8px;align-items:center}.sample-banner p{font-size:12px}.sample-banner strong{margin:0}.sample-banner .button{font-size:12px;white-space:normal;max-width:125px;text-align:left}.sample-banner .icon{width:16px}.contributions{grid-template-columns:1fr;gap:10px}.contribution{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px 18px;padding:17px 18px}.contribution-top{grid-column:1;grid-row:1}.contribution-top>.icon{display:none}.contribution-label{font-size:14px}.contribution>strong{grid-column:2;grid-row:1/3;font-size:26px;align-self:center;margin:0;text-align:right;max-width:170px}.contribution-description{flex-direction:row;font-size:11px;grid-column:1;grid-row:2;justify-content:flex-start;gap:10px;flex-wrap:wrap}.contribution-track{grid-column:1/-1;margin-top:6px}.drivers-grid{grid-template-columns:1fr;gap:10px}.driver{grid-template-columns:minmax(0,1fr) auto;gap:4px 12px}.driver-amount{font-size:20px;grid-row:1/4;grid-column:2;align-self:center;max-width:155px}.driver-label,.driver-meta{grid-column:1}.rows-heading{gap:8px;align-items:flex-start}.rows-heading h2{font-size:18px}.rows-heading .button{font-size:11px;padding:8px;min-height:44px}.rows-heading .button .icon{display:none}.count-tag{font-size:10px;margin-left:4px;padding:2px 6px}.table-wrap{overflow:visible}table,tbody{display:block;width:100%}thead{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap}tbody tr{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);padding:16px 20px;gap:5px 18px;border-top:1px solid #eef0f3}td{display:block;padding:0;border:0!important;font-size:14px;text-align:left;min-width:0}td:first-child{grid-column:1;grid-row:1}.key-button{font-size:15px;padding:0;min-height:34px;display:flex;align-items:center;width:100%}td:nth-child(2){grid-column:1;grid-row:2}td:nth-child(3),td:nth-child(4){margin-top:9px;padding-top:10px;border-top:1px solid #f2f4f6!important;font-size:13px;color:#4e5968}td:nth-child(3){grid-column:1;grid-row:3}td:nth-child(4){grid-column:2;grid-row:3;text-align:right}td:nth-child(3)::before,td:nth-child(4)::before{content:attr(data-label);display:block;font-size:10px;color:var(--muted);margin-bottom:3px}td:last-child{grid-column:2;grid-row:1/3;text-align:right;align-self:center;font-size:22px;font-weight:600;line-height:1.3;letter-spacing:-.5px}td:last-child::before{content:'Difference';display:block;font-size:10px;font-weight:400;color:var(--muted);margin-bottom:5px;letter-spacing:0}.pagination{padding:12px 15px;gap:10px;font-size:11px}.pagination .button{padding:8px;font-size:11px}.method{margin-top:20px}footer{font-size:11px;padding:23px 0 28px}footer>div{gap:14px}.comparison-dialog{width:calc(100vw - 20px);padding:24px 20px;border-radius:22px;max-height:calc(100dvh - 24px)}.dialog-header h2{font-size:25px}.dialog-description{font-size:13px;margin-bottom:20px}.file-pair{gap:8px;grid-template-columns:minmax(0,1fr) 32px minmax(0,1fr)}.swap-files{width:32px;height:44px;background:none}.file-drop{padding:12px 10px 16px;border-radius:13px}.file-icon{width:42px;height:42px;margin:12px 0}.file-drop strong{font-size:12px}.file-drop>span:last-of-type{font-size:10px}.mapping-grid{grid-template-columns:1fr;gap:18px}.mapping-fields{margin-top:22px}.field p{font-size:12px}.dialog-actions{flex-direction:column-reverse;align-items:stretch;gap:12px;padding-top:18px;margin-top:18px}.dialog-actions>.primary{width:100%;min-height:48px}.dialog-actions>div{justify-content:space-between}.row-dialog{padding:26px 22px}.row-dialog h2{font-size:27px}.detail-item strong{font-size:18px}.detail-item:last-child strong{font-size:23px}.toast{bottom:16px}}
+@media(max-width:380px){main{padding-inline:14px}.topbar-inner{padding-inline:16px}.brand{font-size:23px}.topbar .button{font-size:12px;padding-inline:12px}.net-result{padding:24px}.net-amount{font-size:43px}.comparison-totals{margin-inline:20px;padding:16px;gap:12px}.snapshot-total strong{font-size:21px}.overview-foot{padding-inline:20px;flex-wrap:wrap}.sample-banner{display:block}.sample-banner .button{margin-top:5px;padding-left:0}.sort-control select{width:132px}.export-group p{max-width:140px}.driver-amount{font-size:18px}}
+@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*,*::before,*::after{transition:none!important;animation:none!important;scroll-behavior:auto!important}}
+@media print{.topbar,.sample-banner,.draft-notice,.export-group,.table-tools,footer,.button,dialog,.toast{display:none!important}main{max-width:none;padding:0}.overview-card,.contribution,.driver,.rows-panel{break-inside:avoid;box-shadow:none}body{background:white}.method{display:none}}
+/* Keep the primary action in reach while the comparison form scrolls. */
+.comparison-dialog .dialog-actions{position:sticky;bottom:-30px;z-index:2;background:#fff;margin-inline:-30px;padding:18px 30px 20px;margin-bottom:-30px;box-shadow:0 -10px 18px #ffffffeb}
+@media(max-width:600px){.comparison-dialog .dialog-actions{bottom:-24px;margin-inline:-20px;padding:16px 20px 16px;margin-bottom:-24px}}
+
+.comparison-dialog .dialog-header{position:sticky;top:-30px;z-index:3;background:#fff;margin:-30px -30px 0;padding:28px 30px 16px;box-shadow:0 8px 18px #ffffffeb}
+@media(max-width:600px){.comparison-dialog .dialog-header{top:-24px;margin:-24px -20px 0;padding:22px 20px 12px}}
+@media(max-width:600px){.comparison-totals{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;margin:0 20px 22px;padding:18px 16px}.comparison-totals .totals-arrow{display:none}.snapshot-total strong{font-size:21px;letter-spacing:-.65px}.overview-foot{align-items:flex-start;flex-direction:column;gap:6px}.overview-foot>span{max-width:100%}.overview-foot strong{word-break:normal}.rows-heading h2 .count-badge{display:inline-block}.rows-heading h2{line-height:1.4}}
+@media(max-width:380px){.comparison-totals{grid-template-columns:1fr;gap:14px}.snapshot-total{display:grid;grid-template-columns:1fr 1fr;align-items:baseline;gap:2px 10px}.snapshot-total strong{margin:0;text-align:right;grid-column:2;grid-row:1/3}.snapshot-total .filename{font-size:11px}.snapshot-total small{grid-column:1/-1}}
+@media(max-width:380px){.snapshot-total{grid-template-columns:50px minmax(0,1fr)}.snapshot-total strong{grid-row:1;grid-column:2}.snapshot-total .filename{grid-column:1/-1;max-width:100%}.snapshot-total small{grid-column:1/-1}}
 </style></head>
 <body>
-<header class="topbar"><a href="#" class="brand" aria-label="Rowglass home"><span class="mark">≋</span> rowglass<span class="version">0.1</span></a><div class="top-actions"><span class="local"><i></i> Runs in this file</span><button id="export-html" class="primary">Save report <span aria-hidden="true">↗</span></button></div></header>
-<main>
-<section class="intro"><div><p class="eyebrow">FOLLOW THE DIFFERENCE</p><h1>Where did the total go?</h1><p class="subhead">Two CSVs. One clear explanation. Every change, traced to a row.</p></div><button id="sample-button" class="text-button">Load example <span aria-hidden="true">↻</span></button></section>
-<section class="input-panel" aria-label="Compare your CSV files">
-<div class="file-pair"><label class="file-label"><span class="step">01</span><span><strong>Before</strong><span id="before-file-label">Choose a CSV file</span></span><input type="file" id="before-file" accept=".csv,.tsv,text/csv,text/tab-separated-values" aria-label="Before CSV file"></label><span class="pair-arrow" aria-hidden="true">→</span><label class="file-label"><span class="step">02</span><span><strong>After</strong><span id="after-file-label">Choose a CSV file</span></span><input type="file" id="after-file" accept=".csv,.tsv,text/csv,text/tab-separated-values" aria-label="After CSV file"></label></div>
-<div class="config"><label>Delimiter<select id="delimiter"><option value=",">Comma</option><option value="tab">Tab</option></select></label><label>Match rows by<select id="key-select" disabled><option>Choose files first</option></select></label><label>Compare total of<select id="value-select" disabled><option>Choose files first</option></select></label><button id="compare" class="primary" disabled>Explain change</button></div>
-<p class="input-note">Files stay in your browser. UTF-8 CSV / TSV, up to 20 MiB each. Use the CLI for composite keys.</p>
-<p id="error" role="alert" hidden></p><p id="file-status" class="input-note" role="status" aria-live="polite"></p>
-</section>
+<a class="skip-link" href="#report-title">Skip to comparison</a>
+<header class="topbar"><div class="topbar-inner"><a href="#report-title" class="brand" aria-label="Rowglass home"><span class="brand-icon"><svg xmlns="http://www.w3.org/2000/svg" width="21" height="21" viewBox="0 0 24 24" class="icon" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" />
+  <path d="M12 3v18" /></svg></span>rowglass</a><span class="product-label">CSV comparison</span><nav aria-label="Main navigation"><a class="nav-link" href="#method">How it works</a><a class="nav-link github-link" href="https://github.com/kwakhyun/rowglass" target="_blank" rel="noopener noreferrer">GitHub <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" class="icon" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 7h10v10" />
+  <path d="M7 17 17 7" /></svg></a><button id="new-comparison" class="button primary" type="button"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" class="icon" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14" />
+  <path d="M12 5v14" /></svg><span>Compare files</span></button></nav></div></header>
+<main id="main">
+<section class="page-heading"><div><p id="report-kind" class="eyebrow">Example report</p><h1 id="report-title" tabindex="-1">Your totals, explained.</h1><p class="page-description">See what changed. Find the rows behind it.</p></div><div class="export-group"><button id="export-html" class="button secondary" type="button"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" class="icon" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3" />
+  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+  <path d="m7 10 5 5 5-5" /></svg>Download report</button><p id="export-scope"></p></div></section>
+<div id="sample-banner" class="sample-banner"><div><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" class="icon" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z" />
+  <path d="M14 2v5a1 1 0 0 0 1 1h5" />
+  <path d="M8 13h2" />
+  <path d="M14 13h2" />
+  <path d="M8 17h2" />
+  <path d="M14 17h2" /></svg><p><strong>This is a sample comparison.</strong><span>Explore the results, or try your own CSV files.</span></p></div><button id="open-comparison-inline" class="button quiet" type="button">Use your files <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" class="icon" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14" />
+  <path d="m12 5 7 7-7 7" /></svg></button></div>
+<div id="draft-notice" class="draft-notice" role="status" hidden><p><strong>You have unreviewed changes.</strong><span>The report below still uses your last comparison.</span></p><div><button id="resume-comparison" class="button quiet" type="button">Review changes</button><button id="discard-draft" class="button quiet muted" type="button">Discard</button></div></div>
 <section id="report" aria-label="Comparison report">
-<div class="report-heading"><div><span id="sample-badge" class="badge">SAMPLE DATA</span><span id="report-source"></span></div><span class="verified"><span aria-hidden="true">✓</span> <span id="reconcile-status">Totals reconcile exactly</span></span></div>
-<div class="metrics"><div class="metric"><span>Before total</span><strong id="total-before"></strong><small id="count-before"></small></div><div class="metric"><span>After total</span><strong id="total-after"></strong><small id="count-after"></small></div><div class="metric focus"><span>Net change</span><strong id="total-delta"></strong><small id="percent-change"></small></div></div>
-<div class="analysis-grid"><section class="chart-panel"><div class="section-heading"><div><h2>How the total changed</h2><p>Click a contribution to inspect its rows.</p></div><span id="metric-label" class="mono"></span></div><div id="waterfall"></div><div id="equation" class="equation"></div></section><aside class="drivers"><p class="eyebrow">LOOK CLOSER</p><h2>The largest movements</h2><p class="aside-note">Arithmetic contributors, not business causes.</p><div id="drivers"></div></aside></div>
-<section class="rows-panel"><div class="section-heading"><div><h2>The rows behind the numbers <span id="row-total" class="count-tag"></span></h2><p id="scope-note"></p></div><button id="export-json" class="text-button">Export JSON ↓</button></div><div class="table-tools"><div id="filters" class="filters" role="group" aria-label="Filter by change type"></div><label class="search-label"><span class="sr-only">Search row keys</span><input id="search" type="search" placeholder="Search row keys…"></label></div><div class="table-wrap"><table><thead><tr><th id="key-heading" scope="col">Row key</th><th scope="col">Status</th><th scope="col" class="number">Before</th><th scope="col" class="number">After</th><th scope="col" class="number">Contribution</th></tr></thead><tbody id="rows"></tbody></table></div><div class="pagination"><span id="page-note" aria-live="polite"></span><div><button id="prev-page" aria-label="Previous page">← Previous</button><button id="next-page" aria-label="Next page">Next →</button></div></div></section>
-<section class="method"><h2>A small, checkable calculation.</h2><p>Before + added rows − removed rows + changes to matched values = after. Keys match exactly, including case and whitespace. Duplicate or empty keys and invalid numbers stop the comparison. Decimal totals use integer arithmetic; chart positions are approximate.</p><p id="schema-note"></p><p>Only the selected key columns and metric are included in the saved report. The report contains those values: review them before sharing. Rowglass makes no network requests and does not collect usage data.</p></section>
-</section><footer><span class="brand-small">≋ rowglass</span><span>Small files. Clear answers.</span><a class="source-link" href="https://github.com/kwakhyun/rowglass" target="_blank" rel="noopener noreferrer">GitHub ↗ · MIT · v0.1.0</a></footer>
-</main><dialog id="row-dialog"><button id="close-dialog" class="dialog-close" aria-label="Close row details">×</button><p class="eyebrow">ROW EVIDENCE</p><h2 id="detail-key"></h2><div id="detail-values"></div><p id="detail-note"></p></dialog>
+<section class="overview-card" aria-labelledby="total-heading"><div class="net-result"><div class="metric-caption"><h2 id="total-heading">Total change</h2><span class="metric-tag" id="metric-label"></span></div><strong id="total-delta" class="net-amount"></strong><div class="net-context"><span id="percent-change" class="percent-badge"></span><span id="row-change-count"></span></div><p id="summary-description" class="summary-description"></p></div><div class="comparison-totals"><div class="snapshot-total"><span class="snapshot-label">Before</span><strong id="total-before"></strong><span id="before-name" class="filename"></span><small id="count-before"></small></div><span class="totals-arrow" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" class="icon" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14" />
+  <path d="m12 5 7 7-7 7" /></svg></span><div class="snapshot-total"><span class="snapshot-label">After</span><strong id="total-after"></strong><span id="after-name" class="filename"></span><small id="count-after"></small></div></div><div class="overview-foot"><span><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" class="icon" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5" /></svg><span>The totals reconcile exactly</span></span><span>Matched by <strong id="key-summary"></strong></span><span id="report-source" class="sr-only"></span></div></section>
+<section class="breakdown-section" aria-labelledby="breakdown-title"><div class="section-heading"><div><h2 id="breakdown-title">What makes up the difference</h2><p>Select a group to see its rows.</p></div></div><div class="contributions"><button class="contribution" id="contrib-added" type="button" aria-pressed="false"><span class="contribution-top"><span class="contribution-label">Added rows</span><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" class="icon" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6" /></svg></span><strong id="added-total"></strong><span class="contribution-description">New in the after file<span id="added-count"></span></span><span class="contribution-track" aria-hidden="true"><span id="added-bar"></span></span></button><button class="contribution" id="contrib-removed" type="button" aria-pressed="false"><span class="contribution-top"><span class="contribution-label">Removed rows</span><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" class="icon" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6" /></svg></span><strong id="removed-total"></strong><span class="contribution-description">Only in the before file<span id="removed-count"></span></span><span class="contribution-track" aria-hidden="true"><span id="removed-bar"></span></span></button><button class="contribution" id="contrib-changed" type="button" aria-pressed="false"><span class="contribution-top"><span class="contribution-label">Changed values</span><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" class="icon" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6" /></svg></span><strong id="changed-total"></strong><span class="contribution-description">Same row, different amount<span id="changed-count"></span></span><span class="contribution-track" aria-hidden="true"><span id="changed-bar"></span></span></button></div><details id="calculation-details" class="calculation"><summary><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" class="icon" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" />
+  <path d="M12 3v18" /></svg>See the full calculation <span class="summary-chevron"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" class="icon" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6" /></svg></span></summary><div class="calculation-content"><p class="calculation-note">Before + added + removed contribution + changed values = after</p><div id="waterfall" class="chart-scroll" tabindex="0" role="region" aria-label="Total change chart. Scroll horizontally on small screens."></div><div id="equation" class="equation"></div><p class="calculation-note">Numbers are exact. Chart positions are approximate.</p></div></details></section>
+<section class="drivers-section" aria-labelledby="drivers-title"><div class="section-heading"><h2 id="drivers-title">The biggest movements</h2><span class="section-hint">Follow a row to its original values</span></div><div id="drivers" class="drivers-grid"></div></section>
+<section class="rows-panel" aria-labelledby="rows-label"><div class="section-heading rows-heading"><div><h2 id="rows-label">Rows behind the change <span id="row-total" class="count-tag"></span></h2><p id="scope-note"></p></div><button id="export-json" class="button quiet small" type="button">Download JSON <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" class="icon" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3" />
+  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+  <path d="m7 10 5 5 5-5" /></svg></button></div><div class="table-tools"><div id="filters" class="filters" role="group" aria-label="Filter rows by change type"></div><div class="table-controls"><div class="search-wrap"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" class="icon" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21 21-4.34-4.34" />
+  <circle cx="11" cy="11" r="8" /></svg><label class="sr-only" for="search">Search row keys</label><input id="search" type="search" placeholder="Search rows" autocomplete="off"><button id="clear-search" type="button" class="clear-search" aria-label="Clear search" hidden><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" class="icon" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18" />
+  <path d="m6 6 12 12" /></svg></button></div><label class="sort-control"><span class="sr-only">Sort rows</span><select id="row-sort"><option value="impact">Largest change</option><option value="increase">Largest increase</option><option value="decrease">Largest decrease</option><option value="key">Key A–Z</option></select></label></div></div><div class="table-wrap"><table><caption class="sr-only">Individual row values and their contribution to the total change.</caption><thead><tr><th id="key-heading" scope="col">Row key</th><th id="status-heading" scope="col">Change</th><th id="before-heading" scope="col" class="number">Before</th><th id="after-heading" scope="col" class="number">After</th><th id="contribution-heading" scope="col" class="number">Difference</th></tr></thead><tbody id="rows"></tbody></table></div><div id="empty-state" class="empty-state" hidden><svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" class="icon" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21 21-4.34-4.34" />
+  <circle cx="11" cy="11" r="8" /></svg><h3 id="empty-title">No matching rows</h3><p id="empty-description">Try a different search or reset the filters.</p><button id="reset-filters" class="button secondary" type="button">Reset filters</button></div><div class="pagination"><span id="page-note" role="status" aria-live="polite"></span><div><button id="prev-page" class="button quiet" aria-label="Previous page" type="button">Previous</button><button id="next-page" class="button quiet" aria-label="Next page" type="button">Next <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" class="icon" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14" />
+  <path d="m12 5 7 7-7 7" /></svg></button></div></div></section>
+<details id="method" class="method"><summary>How Rowglass compares your files <span class="summary-chevron"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" class="icon" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6" /></svg></span></summary><div class="method-grid"><section><h2>Match a row. Compare a value.</h2><p>A unique key connects each row across your files. Added rows contribute their new value. Removed rows contribute the negative of their old value. Matched rows contribute the difference.</p><p id="schema-note"></p></section><section><h2>Your data stays with you.</h2><p>Files are processed on your device. There are no uploads or tracking. Downloaded reports include all selected keys and metric values, even when the table is filtered.</p><p>Rowglass explains arithmetic differences. It does not infer business causes or convert currencies.</p></section></div></details>
+</section><footer><span class="footer-brand">rowglass<span>A little clarity for your data.</span></span><div><a href="https://github.com/kwakhyun/rowglass" target="_blank" rel="noopener noreferrer">Open source <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" class="icon" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 7h10v10" />
+  <path d="M7 17 17 7" /></svg></a><span>MIT license</span></div></footer>
+</main>
+<dialog id="comparison-dialog" class="comparison-dialog" aria-labelledby="comparison-heading" aria-describedby="comparison-description"><div class="dialog-header"><div><p class="eyebrow">A new comparison</p><h2 id="comparison-heading">Find what changed.</h2></div><button id="close-comparison" class="icon-button" aria-label="Close comparison" type="button"><svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" class="icon" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18" />
+  <path d="m6 6 12 12" /></svg></button></div><p id="comparison-description" class="dialog-description">Add two CSV files, then choose how to match their rows.</p><form id="comparison-form" novalidate><div class="file-pair"><label class="file-drop" id="before-drop"><span class="file-side">Before</span><span class="file-icon"><svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" class="icon" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z" />
+  <path d="M14 2v5a1 1 0 0 0 1 1h5" />
+  <path d="M8 13h2" />
+  <path d="M14 13h2" />
+  <path d="M8 17h2" />
+  <path d="M14 17h2" /></svg></span><strong id="before-file-label">Choose a file</strong><span id="before-file-meta">or drop a CSV here</span><input type="file" id="before-file" accept=".csv,.tsv,text/csv,text/tab-separated-values" aria-label="Before CSV file" aria-describedby="before-file-label before-file-meta"></label><button id="swap-files" type="button" class="icon-button swap-files" aria-label="Swap before and after files" disabled><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" class="icon" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14" />
+  <path d="m12 5 7 7-7 7" /></svg></button><label class="file-drop" id="after-drop"><span class="file-side">After</span><span class="file-icon"><svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" class="icon" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z" />
+  <path d="M14 2v5a1 1 0 0 0 1 1h5" />
+  <path d="M8 13h2" />
+  <path d="M14 13h2" />
+  <path d="M8 17h2" />
+  <path d="M14 17h2" /></svg></span><strong id="after-file-label">Choose a file</strong><span id="after-file-meta">or drop a CSV here</span><input type="file" id="after-file" accept=".csv,.tsv,text/csv,text/tab-separated-values" aria-label="After CSV file" aria-describedby="after-file-label after-file-meta"></label></div>
+<fieldset id="mapping-fields" class="mapping-fields" hidden><legend>Connect the right columns</legend><div class="mapping-grid"><div class="field"><label for="key-select">Match rows by</label><p id="key-help">A column with a unique ID for every row.</p><select id="key-select" disabled aria-describedby="key-help key-preview"><option value="">Choose files first</option></select><small id="key-preview"></small></div><div class="field"><label for="value-select">Column to total</label><p id="value-help">The numeric values you want to compare.</p><select id="value-select" disabled aria-describedby="value-help value-preview"><option value="">Choose files first</option></select><small id="value-preview"></small></div></div></fieldset>
+<details class="file-options"><summary>File format and limits <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" class="icon" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6" /></svg></summary><div><label for="delimiter">Column separator</label><select id="delimiter"><option value=",">Comma (CSV)</option><option value="tab">Tab (TSV)</option></select><p>UTF-8 files up to 20 MiB and 100,000 rows each. Numbers use a decimal point, without currency symbols or thousands separators. Use the CLI to match multiple key columns.</p></div></details>
+<p id="error" class="error-message" role="alert" tabindex="-1" hidden></p><p id="file-status" class="file-status" role="status" aria-live="polite">Choose a before file and an after file to get started.</p><div class="dialog-actions"><div><button id="sample-button" class="button quiet" type="button">Try the example</button><button id="reset-comparison" class="button quiet muted" type="button">Clear files</button></div><button id="compare" class="button primary" type="submit" disabled>Compare files <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" class="icon" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14" />
+  <path d="m12 5 7 7-7 7" /></svg></button></div></form></dialog>
+<dialog id="row-dialog" class="row-dialog" aria-labelledby="detail-key" aria-describedby="detail-note"><div class="dialog-header"><p class="eyebrow">Row details</p><button id="close-dialog" class="icon-button" aria-label="Close row details" type="button"><svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" class="icon" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18" />
+  <path d="m6 6 12 12" /></svg></button></div><span id="detail-status" class="detail-status"></span><h2 id="detail-key"></h2><div id="detail-values"></div><p id="detail-note"></p></dialog>
+<div id="toast" class="toast" role="status" aria-live="polite" aria-atomic="true"></div>
 <script id="rowglass-data" type="application/json">{"report":{"version":1,"keys":["account"],"value":"amount","beforeName":"before.csv","afterName":"after.csv","scale":2,"totals":{"before":"128000.00","after":"141400.00","delta":"13400.00","added":"21000.00","removed":"-8000.00","changed":"400.00"},"counts":{"before":8,"after":9,"added":2,"removed":1,"changed":2,"unchanged":5},"schema":{"added":[],"removed":[]},"rows":[{"key":["Atlas"],"before":"32000.00","after":"40000.00","delta":"8000.00","status":"changed"},{"key":["Beacon"],"before":"24000.00","after":"24000.00","delta":"0.00","status":"unchanged"},{"key":["Cedar"],"before":"18000.00","after":"10400.00","delta":"-7600.00","status":"changed"},{"key":["Delta"],"before":"16000.00","after":"16000.00","delta":"0.00","status":"unchanged"},{"key":["Evergreen"],"before":"12000.00","after":"12000.00","delta":"0.00","status":"unchanged"},{"key":["Fjord"],"before":"10000.00","after":"10000.00","delta":"0.00","status":"unchanged"},{"key":["Grove"],"before":"8000.00","after":null,"delta":"-8000.00","status":"removed"},{"key":["Harbor"],"before":"8000.00","after":"8000.00","delta":"0.00","status":"unchanged"},{"key":["Juniper"],"before":null,"after":"9000.00","delta":"9000.00","status":"added"},{"key":["Indigo"],"before":null,"after":"12000.00","delta":"12000.00","status":"added"}]},"sample":true,"example":{"version":1,"keys":["account"],"value":"amount","beforeName":"before.csv","afterName":"after.csv","scale":2,"totals":{"before":"128000.00","after":"141400.00","delta":"13400.00","added":"21000.00","removed":"-8000.00","changed":"400.00"},"counts":{"before":8,"after":9,"added":2,"removed":1,"changed":2,"unchanged":5},"schema":{"added":[],"removed":[]},"rows":[{"key":["Atlas"],"before":"32000.00","after":"40000.00","delta":"8000.00","status":"changed"},{"key":["Beacon"],"before":"24000.00","after":"24000.00","delta":"0.00","status":"unchanged"},{"key":["Cedar"],"before":"18000.00","after":"10400.00","delta":"-7600.00","status":"changed"},{"key":["Delta"],"before":"16000.00","after":"16000.00","delta":"0.00","status":"unchanged"},{"key":["Evergreen"],"before":"12000.00","after":"12000.00","delta":"0.00","status":"unchanged"},{"key":["Fjord"],"before":"10000.00","after":"10000.00","delta":"0.00","status":"unchanged"},{"key":["Grove"],"before":"8000.00","after":null,"delta":"-8000.00","status":"removed"},{"key":["Harbor"],"before":"8000.00","after":"8000.00","delta":"0.00","status":"unchanged"},{"key":["Juniper"],"before":null,"after":"9000.00","delta":"9000.00","status":"added"},{"key":["Indigo"],"before":null,"after":"12000.00","delta":"12000.00","status":"added"}]}}</script>
 <script type="module">/** Exact, dependency-free CSV reconciliation for Node.js and browsers. */
 
@@ -263,263 +366,701 @@ export function reconcile(beforeDataset, afterDataset, options = {}) {
   };
 }
 
-// This file is embedded after engine.mjs in a single browser module.
+// Embedded after engine.mjs in a single browser module; no external requests.
 const $ = id => document.getElementById(id);
 const initial = JSON.parse($('rowglass-data').textContent);
 let report = initial.report;
 let isSample = initial.sample;
 let filter = 'changes';
+let sort = 'impact';
 let page = 0;
 let loadRevision = 0;
+let loading = false;
+let draftDirty = false;
+let toastTimer;
 const pageSize = 40;
+const sides = ['before', 'after'];
 const files = { before: null, after: null };
 const parsed = { before: null, after: null };
 const labels = { added: 'Added', removed: 'Removed', changed: 'Value changed', unchanged: 'Same value' };
+const filterNames = { changes: 'Changes', added: 'Added', removed: 'Removed', changed: 'Value changed', all: 'All rows' };
+const sortNames = { impact: 'largest impact first', key: 'key order', increase: 'largest increase first', decrease: 'largest decrease first' };
+const filterButtons = new Map();
+let rowFacts = new WeakMap();
+let sortedCache = new Map();
+let selectionCache = null;
 
 function element(tag, text, className) {
-  const e = document.createElement(tag);
-  if (text !== undefined) e.textContent = text;
-  if (className) e.className = className;
-  return e;
+  const node = document.createElement(tag);
+  if (text !== undefined) node.textContent = text;
+  if (className) node.className = className;
+  return node;
 }
 function display(value, signed = false) {
   if (value === null) return '—';
   const negative = value.startsWith('-');
-  const raw = negative ? value.slice(1) : value;
-  const [whole, fraction] = raw.split('.');
+  const [whole, fraction] = (negative ? value.slice(1) : value).split('.');
   const sign = negative ? '−' : signed && !/^0(?:\.0+)?$/.test(value) ? '+' : '';
   return sign + whole.replace(/\B(?=(\d{3})+(?!\d))/g, ',') + (fraction === undefined ? '' : `.${fraction}`);
 }
 function units(value) { return BigInt(value.replace('.', '')); }
-function absolute(value) { const n = units(value); return n < 0n ? -n : n; }
-function direction(value) { return units(value) < 0n ? 'negative' : units(value) > 0n ? 'positive' : ''; }
-function byImpact(a, b) {
-  const aa = absolute(a.delta), bb = absolute(b.delta);
-  return aa > bb ? -1 : aa < bb ? 1 : a.key.join(' / ').localeCompare(b.key.join(' / '));
-}
-function setError(message = '') { $('error').textContent = message; $('error').hidden = !message; }
+function absolute(value) { const n = typeof value === 'bigint' ? value : units(value); return n < 0n ? -n : n; }
+function direction(value) { const n = units(value); return n < 0n ? 'negative' : n > 0n ? 'positive' : ''; }
 function keyLabel(row) { return row.key.length === 1 ? row.key[0] : JSON.stringify(row.key); }
-function signedPercent() {
-  const base = units(report.totals.before), delta = units(report.totals.delta);
-  if (base === 0n) return delta === 0n ? 'No change; baseline is zero' : 'No percentage: baseline is zero';
-  if (base < 0n) return 'Percentage omitted for a negative baseline';
-  const magnitude = delta < 0n ? -delta : delta;
-  const roundedTenths = (magnitude * 1000n + base / 2n) / base;
-  return `${delta < 0n ? '−' : delta > 0n ? '+' : ''}${roundedTenths / 10n}.${roundedTenths % 10n}% from before`;
+function countLabel(count, noun = 'row') { return `${count.toLocaleString()} ${noun}${count === 1 ? '' : 's'}`; }
+function setDirection(node, value) {
+  node.classList.remove('positive', 'negative');
+  const className = direction(value);
+  if (className) node.classList.add(className);
+}
+function scrollToRows() {
+  const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  $('rows-label').scrollIntoView({ behavior: reduced ? 'auto' : 'smooth', block: 'start' });
+}
+function focusReport() {
+  requestAnimationFrame(() => {
+    $('report-title').focus({ preventScroll: true });
+    $('report-title').scrollIntoView({ behavior: 'auto', block: 'start' });
+  });
+}
+function setError(message = '') {
+  $('error').textContent = message;
+  $('error').hidden = !message;
+}
+function showToast(message) {
+  clearTimeout(toastTimer);
+  $('toast').textContent = message;
+  $('toast').hidden = false;
+  $('toast').classList.add('is-visible');
+  toastTimer = setTimeout(() => {
+    $('toast').hidden = true;
+    $('toast').classList.remove('is-visible');
+    $('toast').textContent = '';
+  }, 5500);
+}
+function setDirty(value) {
+  draftDirty = value;
+  $('draft-notice').hidden = !value;
+  $('export-html').disabled = value;
+  $('export-json').disabled = value;
+  $('export-scope').textContent = `Includes all ${report.rows.length.toLocaleString()} rows, even when filtered.`;
+}
+function setBusy(value) {
+  loading = value;
+  $('comparison-form').setAttribute('aria-busy', String(value));
+  for (const side of sides) $(side + '-drop').setAttribute('aria-busy', String(value && !!files[side]));
+  $('compare').disabled = value || !parsed.before || !parsed.after || $('key-select').disabled;
+  $('swap-files').disabled = !files.before && !files.after;
+}
+function draftHint(prefix) {
+  return `${prefix}${draftDirty ? ' Draft changes are not in the report yet.' : ''}`;
 }
 
-function render() {
-  $('row-dialog').close();
-  $('detail-key').textContent = '';
-  $('detail-values').replaceChildren();
-  $('detail-note').textContent = '';
-  $('sample-badge').hidden = !isSample;
+function signedPercent() {
+  const base = units(report.totals.before), delta = units(report.totals.delta);
+  if (base === 0n) return delta === 0n ? 'No change; baseline is zero' : 'Percentage unavailable: baseline is zero';
+  if (base < 0n) return 'Percentage omitted for a negative baseline';
+  const tenths = (absolute(delta) * 1000n + base / 2n) / base;
+  return `${delta < 0n ? '−' : delta > 0n ? '+' : ''}${tenths / 10n}.${tenths % 10n}% from before`;
+}
+function prepareRows() {
+  rowFacts = new WeakMap();
+  sortedCache = new Map();
+  selectionCache = null;
+  report.rows.forEach((row, index) => {
+    const key = keyLabel(row), delta = units(row.delta);
+    rowFacts.set(row, { key, query: key.toLocaleLowerCase(), delta, magnitude: absolute(delta), index });
+  });
+}
+function sortedRows() {
+  if (sortedCache.has(sort)) return sortedCache.get(sort);
+  const result = [...report.rows].sort((a, b) => {
+    const aa = rowFacts.get(a), bb = rowFacts.get(b);
+    if (sort === 'impact' && aa.magnitude !== bb.magnitude) return aa.magnitude > bb.magnitude ? -1 : 1;
+    if (sort === 'increase' && aa.delta !== bb.delta) return aa.delta > bb.delta ? -1 : 1;
+    if (sort === 'decrease' && aa.delta !== bb.delta) return aa.delta < bb.delta ? -1 : 1;
+    return aa.key.localeCompare(bb.key) || aa.index - bb.index;
+  });
+  sortedCache.set(sort, result);
+  return result;
+}
+function selectedRows() {
+  const query = $('search').value.toLocaleLowerCase();
+  if (selectionCache?.sort === sort && selectionCache.filter === filter && selectionCache.query === query) return selectionCache.rows;
+  const rows = sortedRows().filter(row => (
+    filter === 'all' || (filter === 'changes' && row.status !== 'unchanged') || row.status === filter
+  ) && rowFacts.get(row).query.includes(query));
+  selectionCache = { sort, filter, query, rows };
+  return rows;
+}
+function initializeFilters() {
+  $('filters').replaceChildren();
+  for (const [value, label] of Object.entries(filterNames)) {
+    const button = element('button', undefined, 'filter-chip');
+    button.type = 'button';
+    button.dataset.filter = value;
+    const count = element('span', '', 'filter-count');
+    button.append(element('span', label), count);
+    button.addEventListener('click', () => selectFilter(value));
+    filterButtons.set(value, { button, count });
+    $('filters').append(button);
+  }
+}
+function updateFilters() {
+  const counts = {
+    changes: report.counts.added + report.counts.removed + report.counts.changed,
+    added: report.counts.added, removed: report.counts.removed, changed: report.counts.changed,
+    all: report.rows.length,
+  };
+  for (const [value, { button, count }] of filterButtons) {
+    count.textContent = counts[value].toLocaleString();
+    button.classList.toggle('active', filter === value);
+    button.setAttribute('aria-pressed', String(filter === value));
+  }
+  for (const status of ['added', 'removed', 'changed']) {
+    $('contrib-' + status).setAttribute('aria-pressed', String(filter === status));
+  }
+}
+function selectFilter(value, scroll = false) {
+  filter = value;
+  page = 0;
+  renderRows();
+  if (scroll) scrollToRows();
+}
+function resetView() {
+  filter = 'changes'; sort = 'impact'; page = 0;
+  $('search').value = '';
+  $('row-sort').value = 'impact';
+}
+function tableCell(label, header, text, className) {
+  const cell = element('td', text, className);
+  cell.dataset.label = label;
+  cell.setAttribute('headers', header);
+  return cell;
+}
+function renderRows() {
+  updateFilters();
+  const selected = selectedRows();
+  const pageCount = Math.max(1, Math.ceil(selected.length / pageSize));
+  page = Math.max(0, Math.min(page, pageCount - 1));
+  const fragment = document.createDocumentFragment();
+  for (const row of selected.slice(page * pageSize, (page + 1) * pageSize)) {
+    const tr = element('tr');
+    tr.dataset.status = row.status;
+    const keyCell = tableCell(report.keys.join(' + '), 'key-heading');
+    const button = element('button', rowFacts.get(row).key, 'key-button');
+    button.type = 'button';
+    button.setAttribute('aria-label', `Inspect row ${rowFacts.get(row).key}`);
+    button.addEventListener('click', () => showRow(row));
+    keyCell.append(button);
+    const statusCell = tableCell('Status', 'status-heading');
+    statusCell.append(element('span', labels[row.status], `status-pill ${row.status}`));
+    tr.append(
+      keyCell, statusCell,
+      tableCell('Before', 'before-heading', display(row.before), 'number'),
+      tableCell('After', 'after-heading', display(row.after), 'number'),
+      tableCell('Contribution', 'contribution-heading', display(row.delta, true), `number ${direction(row.delta)}`),
+    );
+    fragment.append(tr);
+  }
+  $('rows').replaceChildren(fragment);
+  $('empty-state').hidden = selected.length !== 0;
+  const noChanges = filter === 'changes' && !$('search').value && report.counts.added + report.counts.removed + report.counts.changed === 0;
+  $('empty-title').textContent = noChanges ? 'No row changes' : 'No matching rows';
+  $('empty-description').textContent = noChanges ? 'The selected values match. Choose All rows to inspect them.' : 'Try a different search or reset the filters.';
+  $('clear-search').hidden = $('search').value.length === 0;
+  const first = selected.length ? page * pageSize + 1 : 0;
+  const last = Math.min((page + 1) * pageSize, selected.length);
+  $('page-note').textContent = `${first.toLocaleString()}–${last.toLocaleString()} of ${countLabel(selected.length)}; ${sortNames[sort]}`;
+  $('prev-page').disabled = page === 0;
+  $('next-page').disabled = page >= pageCount - 1;
+}
+
+function renderDrivers() {
+  let increase = null, decrease = null;
+  for (const row of report.rows) {
+    const delta = rowFacts.get(row).delta;
+    if (delta > 0n && (!increase || delta > rowFacts.get(increase).delta)) increase = row;
+    if (delta < 0n && (!decrease || delta < rowFacts.get(decrease).delta)) decrease = row;
+  }
+  $('drivers').replaceChildren();
+  for (const [label, row] of [['Largest increase', increase], ['Largest decrease', decrease]]) {
+    if (!row) continue;
+    const button = element('button', undefined, `driver ${direction(row.delta)}`);
+    button.type = 'button';
+    button.setAttribute('aria-label', `${label}: ${keyLabel(row)}, ${display(row.delta, true)}. Inspect row.`);
+    button.append(
+      element('span', label, 'driver-label'),
+      element('strong', keyLabel(row), 'driver-key'),
+      element('span', display(row.delta, true), 'driver-amount'),
+      element('small', `${labels[row.status]}: ${display(row.before)} → ${display(row.after)}`, 'driver-meta'),
+    );
+    button.addEventListener('click', () => showRow(row));
+    $('drivers').append(button);
+  }
+  if (!increase && !decrease) $('drivers').append(element('p', 'No rows have a nonzero contribution to the total.', 'aside-note'));
+}
+function renderReport() {
+  clearDetails(true);
+  prepareRows();
+  const changedCount = report.counts.added + report.counts.removed + report.counts.changed;
+  $('sample-banner').hidden = !isSample;
+  $('report-kind').textContent = isSample ? 'Example report' : 'Your comparison';
+  $('report-title').textContent = 'Your totals, explained.';
+  $('summary-description').textContent = changedCount === 0
+    ? 'No row changes. The total is unchanged.'
+    : units(report.totals.delta) === 0n
+      ? `${countLabel(changedCount)} changed, with no net change to the total.`
+      : `${countLabel(changedCount)} ${changedCount === 1 ? 'accounts' : 'account'} for this change in ${report.value}.`;
+  $('before-name').textContent = report.beforeName;
+  $('after-name').textContent = report.afterName;
   $('report-source').textContent = `${report.beforeName} → ${report.afterName}`;
   $('metric-label').textContent = report.value;
+  $('key-summary').textContent = report.keys.join(' + ');
+  $('row-change-count').textContent = `${countLabel(changedCount)} changed`;
   $('total-before').textContent = display(report.totals.before);
   $('total-after').textContent = display(report.totals.after);
   $('total-delta').textContent = display(report.totals.delta, true);
-  $('total-delta').className = direction(report.totals.delta);
-  $('count-before').textContent = `${report.counts.before.toLocaleString()} rows · ${report.value}`;
-  $('count-after').textContent = `${report.counts.after.toLocaleString()} rows · ${report.value}`;
+  setDirection($('total-delta'), report.totals.delta);
+  $('count-before').textContent = countLabel(report.counts.before);
+  $('count-after').textContent = countLabel(report.counts.after);
   $('percent-change').textContent = signedPercent();
   $('scope-note').textContent = `Matched by ${report.keys.join(' + ')}. “Value changed” refers only to ${report.value}.`;
   $('row-total').textContent = report.rows.length.toLocaleString();
   $('key-heading').textContent = report.keys.join(' + ');
   $('schema-note').textContent = report.schema.added.length || report.schema.removed.length
-    ? `Schema changes: added columns: ${report.schema.added.join(', ') || 'none'}; removed columns: ${report.schema.removed.join(', ') || 'none'}. Non-metric cell changes are outside this comparison.`
-    : 'Non-metric cell changes are outside this comparison. Row order does not affect the result.';
-  const term = v => units(v) === 0n ? `+${display(v)}` : display(v, true);
+    ? `Column changes: added ${report.schema.added.join(', ') || 'none'}; removed ${report.schema.removed.join(', ') || 'none'}. Other cell values are not compared.`
+    : 'Other cell values are not compared. Row order does not affect this result.';
+  const statuses = ['added', 'removed', 'changed'];
+  const maxContribution = statuses.reduce((largest, status) => {
+    const amount = absolute(report.totals[status]);
+    return amount > largest ? amount : largest;
+  }, 0n);
+  for (const status of statuses) {
+    const value = report.totals[status];
+    $(status + '-total').textContent = display(value, true);
+    setDirection($(status + '-total'), value);
+    $(status + '-count').textContent = countLabel(report.counts[status]);
+    const width = maxContribution === 0n ? 0 : Number(absolute(value) * 10000n / maxContribution) / 100;
+    $(status + '-bar').style.width = `${width}%`;
+    $('contrib-' + status).setAttribute('aria-label', `${labels[status]}: ${display(value, true)} across ${countLabel(report.counts[status])}. Show rows.`);
+  }
+  const term = value => units(value) === 0n ? `+${display(value)}` : display(value, true);
   $('equation').textContent = `${display(report.totals.before)} ${term(report.totals.added)} ${term(report.totals.removed)} ${term(report.totals.changed)} = ${display(report.totals.after)}`;
   drawWaterfall();
-  const drivers = [...report.rows].filter(r => units(r.delta) !== 0n).sort(byImpact).slice(0, 3);
-  $('drivers').replaceChildren();
-  if (!drivers.length) $('drivers').append(element('p', 'No non-zero row contributions.', 'aside-note'));
-  for (const row of drivers) {
-    const button = element('button', undefined, 'driver');
-    button.append(element('strong', keyLabel(row)), element('span', display(row.delta, true), direction(row.delta)), element('small', `${labels[row.status]} · ${display(row.before)} → ${display(row.after)}`));
-    button.addEventListener('click', () => showRow(row));
-    $('drivers').append(button);
-  }
+  renderDrivers();
   renderRows();
+  setDirty(draftDirty);
 }
 
-function renderRows() {
-  const counts = report.counts;
-  const filters = [ ['changes', 'Changes', counts.added + counts.removed + counts.changed], ['added', 'Added', counts.added], ['removed', 'Removed', counts.removed], ['changed', 'Value changed', counts.changed], ['all', 'All', report.rows.length] ];
-  $('filters').replaceChildren();
-  for (const [value, label, count] of filters) {
-    const b = element('button', label, filter === value ? 'active' : '');
-    b.append(element('span', String(count)));
-    b.setAttribute('aria-pressed', String(filter === value));
-    b.addEventListener('click', () => selectFilter(value));
-    $('filters').append(b);
-  }
-  const query = $('search').value.toLocaleLowerCase();
-  const selected = report.rows.filter(r => (filter === 'all' || filter === 'changes' && r.status !== 'unchanged' || r.status === filter) && keyLabel(r).toLocaleLowerCase().includes(query)).sort(byImpact);
-  const pageCount = Math.max(1, Math.ceil(selected.length / pageSize));
-  page = Math.min(page, pageCount - 1);
-  $('rows').replaceChildren();
-  for (const row of selected.slice(page * pageSize, (page + 1) * pageSize)) {
-    const tr = element('tr');
-    const keyCell = element('td');
-    const b = element('button', keyLabel(row), 'key-button');
-    b.setAttribute('aria-label', `Inspect row ${keyLabel(row)}`);
-    b.addEventListener('click', () => showRow(row));
-    keyCell.append(b);
-    const statusCell = element('td');
-    statusCell.append(element('span', labels[row.status], `status-pill ${row.status}`));
-    tr.append(keyCell, statusCell, element('td', display(row.before), 'number'), element('td', display(row.after), 'number'), element('td', display(row.delta, true), `number ${direction(row.delta)}`));
-    $('rows').append(tr);
-  }
-  if (!selected.length) { const tr = element('tr'); const td = element('td', 'No rows match this view.', 'empty'); td.colSpan = 5; tr.append(td); $('rows').append(tr); }
-  $('page-note').textContent = `${selected.length ? page * pageSize + 1 : 0}–${Math.min((page + 1) * pageSize, selected.length)} of ${selected.length.toLocaleString()} rows · largest impact first`;
-  $('prev-page').disabled = page === 0;
-  $('next-page').disabled = page >= pageCount - 1;
-}
-function selectFilter(value, scroll = false) {
-  filter = value; page = 0; renderRows();
-  if (scroll) $('filters').scrollIntoView({ behavior: 'smooth', block: 'center' });
-}
-
-function svgNode(tag, attrs, text) {
-  const n = document.createElementNS('http://www.w3.org/2000/svg', tag);
-  for (const [key, value] of Object.entries(attrs || {})) n.setAttribute(key, String(value));
-  if (text !== undefined) n.textContent = text;
-  return n;
+function svgNode(tag, attributes, text) {
+  const node = document.createElementNS('http://www.w3.org/2000/svg', tag);
+  for (const [key, value] of Object.entries(attributes || {})) node.setAttribute(key, String(value));
+  if (text !== undefined) node.textContent = text;
+  return node;
 }
 function drawWaterfall() {
-  const t = report.totals;
-  const n = key => Number(t[key]);
-  const addedEnd = n('before') + n('added'), removedEnd = addedEnd + n('removed');
+  const totals = report.totals;
+  const before = units(totals.before), after = units(totals.after);
+  const addedEnd = before + units(totals.added), removedEnd = addedEnd + units(totals.removed);
   const bars = [
-    { label: 'Before', from: 0, to: n('before'), exact: t.before },
-    { label: 'Added', from: n('before'), to: addedEnd, exact: t.added, filter: 'added' },
-    { label: 'Removed', from: addedEnd, to: removedEnd, exact: t.removed, filter: 'removed' },
-    { label: 'Value changed', from: removedEnd, to: n('after'), exact: t.changed, filter: 'changed' },
-    { label: 'After', from: 0, to: n('after'), exact: t.after },
+    { label: 'Before', from: 0n, to: before, exact: totals.before },
+    { label: 'Added', from: before, to: addedEnd, exact: totals.added, filter: 'added' },
+    { label: 'Removed', from: addedEnd, to: removedEnd, exact: totals.removed, filter: 'removed' },
+    { label: 'Value changed', from: removedEnd, to: after, exact: totals.changed, filter: 'changed' },
+    { label: 'After', from: 0n, to: after, exact: totals.after },
   ];
-  const min = Math.min(0, ...bars.flatMap(b => [b.from, b.to]));
-  const max = Math.max(0, ...bars.flatMap(b => [b.from, b.to]));
-  const range = max - min || 1;
-  const y = value => 200 - (value - min) / range * 154;
-  const svg = svgNode('svg', { viewBox: '0 0 660 254', role: 'img', 'aria-label': `Total changed from ${t.before} to ${t.after}. Added ${t.added}, removed contribution ${t.removed}, matched value changes ${t.changed}.` });
-  svg.append(svgNode('line', { x1: 22, x2: 640, y1: y(0), y2: y(0), stroke: '#dce2d8', 'stroke-width': 1 }));
-  bars.forEach((bar, i) => {
-    const x = 37 + i * 127, width = 80;
+  const ends = [0n, ...bars.flatMap(bar => [bar.from, bar.to])];
+  const min = ends.reduce((a, b) => a < b ? a : b), max = ends.reduce((a, b) => a > b ? a : b);
+  const range = max - min || 1n;
+  // Only the chart geometry is approximate; arithmetic and labels stay exact.
+  const y = value => 200 - Number((value - min) * 154000n / range) / 1000;
+  const svg = svgNode('svg', { viewBox: '0 0 660 254', role: 'group', 'aria-label': `Total changed from ${totals.before} to ${totals.after}. Added ${totals.added}, removed contribution ${totals.removed}, matched value changes ${totals.changed}.` });
+  svg.append(svgNode('line', { x1: 22, x2: 640, y1: y(0n), y2: y(0n), stroke: '#d9dfe7', 'stroke-width': 1 }));
+  bars.forEach((bar, index) => {
+    const x = 37 + index * 127, width = 80;
     const top = Math.min(y(bar.from), y(bar.to));
     const height = Math.max(2, Math.abs(y(bar.from) - y(bar.to)));
-    const color = bar.filter ? units(bar.exact) < 0n ? '#bd7151' : '#6b9272' : '#233e31';
-    const g = svgNode('g', bar.filter ? { class: 'chart-bar', role: 'button', tabindex: 0, 'aria-label': `${bar.label}: ${display(bar.exact, true)}. Show rows.` } : {});
-    g.append(svgNode('rect', { x, y: top, width, height, fill: color, rx: 3 }));
+    const color = bar.filter ? units(bar.exact) < 0n ? '#b45323' : '#2563eb' : '#4e5968';
+    const group = svgNode('g', bar.filter ? { class: 'chart-bar', role: 'button', tabindex: 0, 'aria-label': `${bar.label}: ${display(bar.exact, true)}. Show rows.` } : {});
+    group.append(svgNode('rect', { x, y: top, width, height, fill: color, rx: 3 }));
     const exact = display(bar.exact, !!bar.filter);
-    const valueText = exact.length <= 16 ? exact : Number(bar.exact).toExponential(2);
-    g.append(svgNode('text', { x: x + width / 2, y: top - 10, 'text-anchor': 'middle', fill: '#263e2f', 'font-size': 12, 'font-weight': 550 }, valueText));
-    g.append(svgNode('text', { x: x + width / 2, y: 232, 'text-anchor': 'middle', fill: '#65746c', 'font-size': 11 }, bar.label));
-    g.append(svgNode('title', {}, `${bar.label}: ${exact}`));
+    group.append(svgNode('text', { x: x + width / 2, y: top - 10, 'text-anchor': 'middle', fill: '#6b7684', 'font-size': exact.length > 16 ? 9 : 12, 'font-weight': 550 }, exact.length > 22 ? `${exact.slice(0, 19)}…` : exact));
+    group.append(svgNode('text', { x: x + width / 2, y: 232, 'text-anchor': 'middle', fill: '#6b7684', 'font-size': 11 }, bar.label));
+    group.append(svgNode('title', {}, `${bar.label}: ${exact}`));
     if (bar.filter) {
-      g.addEventListener('click', () => selectFilter(bar.filter, true));
-      g.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectFilter(bar.filter, true); } });
+      group.addEventListener('click', () => selectFilter(bar.filter, true));
+      group.addEventListener('keydown', event => {
+        if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); selectFilter(bar.filter, true); }
+      });
     }
-    svg.append(g);
-    if (i > 0 && i < 4) svg.append(svgNode('line', { x1: x + width, x2: x + 127, y1: y(bar.to), y2: y(bar.to), stroke: '#c1cbbf', 'stroke-dasharray': '3 3' }));
+    svg.append(group);
+    if (index > 0 && index < 4) svg.append(svgNode('line', { x1: x + width, x2: x + 127, y1: y(bar.to), y2: y(bar.to), stroke: '#d9dfe7', 'stroke-dasharray': '3 3' }));
   });
   $('waterfall').replaceChildren(svg);
 }
-function showRow(row) {
-  $('detail-key').textContent = keyLabel(row);
+
+function clearDetails(close = false) {
+  if (close && $('row-dialog').open) $('row-dialog').close();
+  $('detail-key').textContent = '';
+  $('detail-status').textContent = '';
+  $('detail-status').classList.remove('added', 'removed', 'changed', 'unchanged');
+  $('detail-status').classList.add('status-pill');
   $('detail-values').replaceChildren();
-  for (const [label, value] of [[report.beforeName, display(row.before)], [report.afterName, display(row.after)], ['Contribution to total change', display(row.delta, true)]]) {
+  $('detail-note').textContent = '';
+}
+function showRow(row) {
+  clearDetails();
+  $('detail-key').textContent = keyLabel(row);
+  $('detail-status').textContent = labels[row.status];
+  $('detail-status').classList.add(row.status);
+  for (const [index, [label, value]] of [[report.beforeName, display(row.before)], [report.afterName, display(row.after)], ['Contribution to total change', display(row.delta, true)]].entries()) {
     const line = element('div', undefined, 'detail-item');
-    line.append(element('span', label), element('strong', value));
+    const amount = element('strong', value);
+    if (index === 2) setDirection(amount, row.delta);
+    line.append(element('span', label), amount);
     $('detail-values').append(line);
   }
-  $('detail-note').textContent = row.status === 'added' ? 'This key exists only in the after file. Its entire value contributes to the total change.' : row.status === 'removed' ? 'This key exists only in the before file. Its contribution is the negative of its original value.' : `After minus before for ${report.value}. Other fields are not compared. This is an arithmetic explanation, not a business-cause inference.`;
+  $('detail-note').textContent = row.status === 'added'
+    ? 'This key exists only in the after file. Its entire value contributes to the total change.'
+    : row.status === 'removed'
+      ? 'This key exists only in the before file. Its contribution is the negative of its original value.'
+      : `After minus before for ${report.value}. Other fields are not compared. This describes the arithmetic, not the business cause.`;
   $('row-dialog').showModal();
 }
 
+function clearMapping() {
+  $('mapping-fields').hidden = true;
+  for (const id of ['key-select', 'value-select']) {
+    const option = element('option', 'Choose files first');
+    option.value = '';
+    $(id).replaceChildren(option);
+    $(id).disabled = true;
+  }
+  for (const id of ['key-preview', 'value-preview']) {
+    $(id).textContent = '';
+    $(id).removeAttribute('title');
+  }
+  $('compare').disabled = true;
+}
+function updateFileLabels() {
+  for (const side of sides) {
+    $(side + '-file-label').textContent = files[side]?.name || 'Choose a CSV file';
+    $(side + '-drop').classList.toggle('is-loaded', !!files[side]);
+    $(side + '-drop').classList.remove('is-dragging', 'has-error');
+    $(side + '-file').removeAttribute('aria-invalid');
+    $(side + '-file-meta').textContent = files[side] ? 'Ready to read' : 'CSV or TSV, up to 20 MiB';
+  }
+}
+function preview(dataset, column) {
+  const index = dataset.headers.indexOf(column);
+  if (index < 0 || !dataset.rows.length) return 'No data rows';
+  return dataset.rows.slice(0, 3).map(row => {
+    const value = row[index];
+    return JSON.stringify(value.length > 60 ? value.slice(0, 57) + '…' : value);
+  }).join(', ');
+}
+function updatePreviews() {
+  if (!parsed.before || !parsed.after) return;
+  for (const [selectId, previewId] of [['key-select', 'key-preview'], ['value-select', 'value-preview']]) {
+    const column = $(selectId).value;
+    const text = `Before: ${preview(parsed.before, column)}. After: ${preview(parsed.after, column)}.`;
+    $(previewId).textContent = text;
+    $(previewId).title = text;
+  }
+}
+function setMapping(previousKey, previousValue) {
+  const common = parsed.before.headers.filter(header => parsed.after.headers.includes(header));
+  if (common.length < 2) throw new Error('The files need at least two shared columns: one key and one numeric metric.');
+  for (const id of ['key-select', 'value-select']) {
+    const select = $(id);
+    select.replaceChildren();
+    for (const header of common) {
+      const option = element('option', header);
+      option.value = header;
+      select.append(option);
+    }
+    select.disabled = false;
+  }
+  $('key-select').value = common.includes(previousKey) ? previousKey : common.find(header => /^(id|account|name|key)$/i.test(header)) || common[0];
+  $('value-select').value = common.includes(previousValue) && previousValue !== $('key-select').value ? previousValue
+    : common.find(header => /^(amount|revenue|cost|total|value|usage)$/i.test(header) && header !== $('key-select').value) || common.find(header => header !== $('key-select').value);
+  $('mapping-fields').hidden = false;
+  updatePreviews();
+}
+function readError(error) {
+  const raw = error instanceof Error ? error.message : String(error);
+  const hint = /UTF-8|encoded data/i.test(raw)
+    ? 'Re-export the file as UTF-8 CSV or TSV, then choose it again.'
+    : /20 MiB|100,000 row/.test(raw)
+      ? 'Use a smaller export within the file and row limits.'
+      : /decimal|integer digit|decimal place/.test(raw)
+        ? 'Choose a numeric column without blanks, currency symbols, separators, or surrounding spaces.'
+        : /duplicate key|blank key/.test(raw)
+          ? 'Choose a unique, nonblank row key. Use the CLI if the key spans multiple columns.'
+          : 'Check the selected columns, file contents, and delimiter, then try again.';
+  return `${raw} ${hint} The current report is unchanged.`;
+}
+async function readDataset(file) {
+  if (file.size > MAX_TEXT_BYTES) throw new Error('File exceeds the 20 MiB limit.');
+  const buffer = await file.arrayBuffer();
+  if (buffer.byteLength > MAX_TEXT_BYTES) throw new Error('File exceeds the 20 MiB limit.');
+  let text;
+  try { text = new TextDecoder('utf-8', { fatal: true }).decode(buffer); }
+  catch (error) { throw new Error(`File must be valid UTF-8. ${error.message}`); }
+  return text;
+}
 async function loadFiles() {
   const revision = ++loadRevision;
+  const snapshot = { ...files };
+  const delimiter = $('delimiter').value === 'tab' ? '\t' : ',';
+  const previousKey = $('key-select').value, previousValue = $('value-select').value;
+  parsed.before = null; parsed.after = null;
+  clearMapping();
   setError();
-  $('compare').disabled = true;
-  $('key-select').disabled = true;
-  $('value-select').disabled = true;
-  if (!files.before || !files.after) { $('file-status').textContent = 'Choose both files to configure your comparison. The report below is unchanged.'; return; }
-  $('file-status').textContent = 'Reading files locally… The report below is unchanged until you compare.';
-  try {
-    const delimiter = $('delimiter').value === 'tab' ? '\t' : ',';
-    const datasets = await Promise.all(['before', 'after'].map(async side => {
-      const file = files[side];
-      if (file.size > 20 * 1024 * 1024) throw new Error(`${side}: file exceeds the 20 MiB limit.`);
-      const text = new TextDecoder('utf-8', { fatal: true }).decode(await file.arrayBuffer());
-      return parseCSV(text, { delimiter });
-    }));
-    if (revision !== loadRevision) return;
-    [parsed.before, parsed.after] = datasets;
-    const common = parsed.before.headers.filter(h => parsed.after.headers.includes(h));
-    if (common.length < 2) throw new Error('The files need at least two shared columns: one key and one numeric metric.');
-    for (const id of ['key-select', 'value-select']) {
-      const select = $(id); select.replaceChildren();
-      for (const header of common) { const option = element('option', header); option.value = header; select.append(option); }
-      select.disabled = false;
+  updateFileLabels();
+  setBusy(true);
+  for (const side of sides) if (snapshot[side]) $(side + '-file-meta').textContent = 'Reading locally…';
+  $('file-status').textContent = draftHint('Reading selected files locally.');
+  const results = await Promise.allSettled(sides.map(async side => snapshot[side] ? parseCSV(await readDataset(snapshot[side]), { delimiter }) : null));
+  if (revision !== loadRevision) return;
+  const errors = [];
+  results.forEach((result, index) => {
+    const side = sides[index];
+    if (result.status === 'fulfilled') {
+      parsed[side] = result.value;
+      $(side + '-drop').classList.remove('has-error');
+      $(side + '-file').removeAttribute('aria-invalid');
+      $(side + '-file-meta').textContent = result.value
+        ? `${countLabel(result.value.rows.length)}, ${countLabel(result.value.headers.length, 'column')}`
+        : 'CSV or TSV, up to 20 MiB';
+    } else {
+      $(side + '-drop').classList.add('has-error');
+      $(side + '-file').setAttribute('aria-invalid', 'true');
+      $(side + '-file-meta').textContent = 'Could not read this file';
+      errors.push(`${side === 'before' ? 'Before' : 'After'}: ${readError(result.reason)}`);
     }
-    $('key-select').value = common.find(h => /^(id|account|name|key)$/i.test(h)) || common[0];
-    $('value-select').value = common.find(h => /^(amount|revenue|cost|total|value|usage)$/i.test(h) && h !== $('key-select').value) || common.find(h => h !== $('key-select').value);
-    $('compare').disabled = false;
-    $('file-status').textContent = 'Files ready. Confirm the key and metric, then select “Explain change”.';
-  } catch (e) { if (revision === loadRevision) { setError(e.message); $('file-status').textContent = 'The report below is unchanged.'; } }
+  });
+  if (errors.length) {
+    setError(errors.join('\n'));
+    $('file-status').textContent = draftHint('Resolve the file error to continue.');
+  } else if (parsed.before && parsed.after) {
+    try {
+      setMapping(previousKey, previousValue);
+      $('file-status').textContent = draftHint('Files ready. Confirm the key and metric, then select “Compare files”.');
+    } catch (error) {
+      clearMapping();
+      setError(readError(error));
+      $('file-status').textContent = draftHint('Check that both files have matching column names.');
+    }
+  } else {
+    const missing = snapshot.before ? 'after' : snapshot.after ? 'before' : 'before and after';
+    $('file-status').textContent = draftHint(`Choose the ${missing} ${snapshot.before || snapshot.after ? 'file' : 'files'} to continue.`);
+  }
+  setBusy(false);
 }
-for (const side of ['before', 'after']) $(side + '-file').addEventListener('change', e => {
-  files[side] = e.target.files[0] || null;
-  $(side + '-file-label').textContent = files[side]?.name || 'Choose a CSV file';
+function resetDraft() {
+  ++loadRevision;
+  clearDetails(true);
+  for (const side of sides) {
+    files[side] = null; parsed[side] = null;
+    $(side + '-file').value = '';
+    $(side + '-file').removeAttribute('aria-invalid');
+    $(side + '-drop').classList.remove('has-error');
+  }
+  $('delimiter').value = ',';
+  clearMapping();
+  updateFileLabels();
+  setError();
+  setBusy(false);
+  setDirty(false);
+  $('file-status').textContent = 'Choose two files to start. The current report is unchanged.';
+}
+function openComparison() {
+  if (!$('comparison-dialog').open) $('comparison-dialog').showModal();
+}
+function acceptFile(side, file) {
+  if (!file) return; // Canceling the picker preserves the existing selection.
+  files[side] = file;
+  setDirty(true);
+  loadFiles();
+}
+for (const side of sides) {
+  $(side + '-file').addEventListener('change', event => acceptFile(side, event.target.files[0]));
+  const drop = $(side + '-drop');
+  let dragDepth = 0;
+  drop.addEventListener('dragenter', event => {
+    event.preventDefault();
+    dragDepth += 1;
+    drop.classList.add('is-dragging');
+  });
+  drop.addEventListener('dragover', event => { event.preventDefault(); if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy'; });
+  drop.addEventListener('dragleave', event => {
+    event.preventDefault();
+    dragDepth = Math.max(0, dragDepth - 1);
+    if (!dragDepth) drop.classList.remove('is-dragging');
+  });
+  drop.addEventListener('drop', event => {
+    event.preventDefault(); event.stopPropagation();
+    dragDepth = 0;
+    drop.classList.remove('is-dragging');
+    const dropped = event.dataTransfer?.files;
+    if (!dropped?.length) return;
+    if (dropped.length !== 1) { setError('Choose one file for each side. Drop the before and after files into their separate areas.'); return; }
+    // The File object is the source of truth; no browser-specific FileList mutation.
+    $(side + '-file').value = '';
+    acceptFile(side, dropped[0]);
+  });
+}
+$('delimiter').addEventListener('change', () => { setDirty(true); loadFiles(); });
+for (const id of ['key-select', 'value-select']) $(id).addEventListener('change', () => {
+  setDirty(true);
+  setError();
+  updatePreviews();
+  $('file-status').textContent = draftHint('Mapping updated. Select “Compare files” to apply it.');
+});
+$('swap-files').addEventListener('click', () => {
+  [files.before, files.after] = [files.after, files.before];
+  for (const side of sides) $(side + '-file').value = '';
+  setDirty(true);
   loadFiles();
 });
-$('delimiter').addEventListener('change', loadFiles);
-$('compare').addEventListener('click', () => {
+$('comparison-form').addEventListener('submit', event => {
+  event.preventDefault();
+  if (loading) return;
   try {
     setError();
+    if (!parsed.before || !parsed.after || $('key-select').disabled) throw new Error('Choose two valid files before comparing.');
     if ($('key-select').value === $('value-select').value) throw new Error('Choose different columns for the row key and numeric metric.');
-    report = reconcile(parsed.before, parsed.after, { keys: [$('key-select').value], value: $('value-select').value, beforeName: files.before.name, afterName: files.after.name });
-    isSample = false; filter = 'changes'; page = 0; $('search').value = '';
-    $('file-status').textContent = 'Comparison ready. Save report to keep an offline copy with these values.';
-    render();
-  } catch (e) { setError(e.message); $('file-status').textContent = 'Comparison failed. The report below is unchanged.'; }
+    const nextReport = reconcile(parsed.before, parsed.after, {
+      keys: [$('key-select').value], value: $('value-select').value,
+      beforeName: files.before.name, afterName: files.after.name,
+    });
+    report = nextReport;
+    isSample = false;
+    setDirty(false);
+    resetView();
+    renderReport();
+    $('file-status').textContent = 'These files and columns match the current report.';
+    $('comparison-dialog').close();
+    focusReport();
+    showToast('Comparison ready. You can save the complete report.');
+  } catch (error) {
+    setError(readError(error));
+    $('file-status').textContent = draftHint('Comparison could not be completed.');
+  }
+});
+for (const id of ['new-comparison', 'open-comparison-inline', 'resume-comparison']) $(id).addEventListener('click', openComparison);
+$('close-comparison').addEventListener('click', () => $('comparison-dialog').close());
+$('comparison-dialog').addEventListener('close', () => {
+  for (const side of sides) $(side + '-drop').classList.remove('is-dragging');
+  setDirty(draftDirty);
+});
+$('reset-comparison').addEventListener('click', resetDraft);
+$('discard-draft').addEventListener('click', () => {
+  resetDraft();
+  showToast('Draft discarded. The current report is unchanged.');
 });
 $('sample-button').addEventListener('click', () => {
-  ++loadRevision;
-  for (const side of ['before', 'after']) { files[side] = null; parsed[side] = null; $(side + '-file').value = ''; $(side + '-file-label').textContent = 'Choose a CSV file'; }
-  $('compare').disabled = true; $('key-select').disabled = true; $('value-select').disabled = true;
-  report = initial.example; isSample = true; filter = 'changes'; page = 0; $('search').value = ''; setError(); $('file-status').textContent = ''; render();
+  resetDraft();
+  report = initial.example;
+  isSample = true;
+  resetView();
+  renderReport();
+  if ($('comparison-dialog').open) $('comparison-dialog').close();
+  focusReport();
+  showToast('Example report loaded.');
 });
+for (const status of ['added', 'removed', 'changed']) $('contrib-' + status).addEventListener('click', () => selectFilter(status, true));
 $('search').addEventListener('input', () => { page = 0; renderRows(); });
-$('prev-page').addEventListener('click', () => { page--; renderRows(); });
-$('next-page').addEventListener('click', () => { page++; renderRows(); });
+$('clear-search').addEventListener('click', () => { $('search').value = ''; page = 0; renderRows(); $('search').focus(); });
+$('row-sort').addEventListener('change', () => { sort = $('row-sort').value; page = 0; renderRows(); });
+$('reset-filters').addEventListener('click', () => {
+  resetView(); filter = 'all'; renderRows(); filterButtons.get('all').button.focus();
+});
+$('prev-page').addEventListener('click', () => { page -= 1; renderRows(); });
+$('next-page').addEventListener('click', () => { page += 1; renderRows(); });
 $('close-dialog').addEventListener('click', () => $('row-dialog').close());
+$('row-dialog').addEventListener('close', () => clearDetails());
 
 function download(content, name, type) {
   const url = URL.createObjectURL(new Blob([content], { type }));
-  const a = element('a'); a.href = url; a.download = name;
-  document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 1000);
+  const link = element('a');
+  link.href = url; link.download = name;
+  document.body.append(link); link.click(); link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
-function encodeState(value) { return JSON.stringify(value).replace(/[<>&\u2028\u2029]/g, c => `\\u${c.charCodeAt(0).toString(16).padStart(4, '0')}`); }
-$('export-json').addEventListener('click', () => download(JSON.stringify(report, null, 2), 'rowglass-report.json', 'application/json'));
-$('export-html').addEventListener('click', () => {
+function encodeState(value) { return JSON.stringify(value).replace(/[<>&\u2028\u2029]/g, character => `\\u${character.charCodeAt(0).toString(16).padStart(4, '0')}`); }
+function cleanExport() {
   const copy = document.documentElement.cloneNode(true);
-  copy.querySelector('#rowglass-data').textContent = encodeState({ report, sample: isSample, example: initial.example });
-  copy.querySelector('#row-dialog').removeAttribute('open');
-  copy.querySelector('#detail-key').textContent = '';
-  copy.querySelector('#detail-values').replaceChildren();
-  copy.querySelector('#detail-note').textContent = '';
-  // File selections cannot be restored. Reset that workspace while keeping the report.
-  for (const side of ['before', 'after']) copy.querySelector('#' + side + '-file-label').textContent = 'Choose a CSV file';
-  for (const id of ['key-select', 'value-select']) {
-    const select = copy.querySelector('#' + id); select.replaceChildren(element('option', 'Choose files first')); select.disabled = true;
+  const get = id => copy.querySelector('#' + id);
+  get('rowglass-data').textContent = encodeState({ report, sample: isSample, example: initial.example });
+  for (const dialog of copy.querySelectorAll('dialog')) dialog.removeAttribute('open');
+  for (const side of sides) {
+    get(side + '-file').value = '';
+    get(side + '-file').removeAttribute('value');
+    get(side + '-file').removeAttribute('aria-invalid');
+    get(side + '-file-label').textContent = 'Choose a CSV file';
+    get(side + '-file-meta').textContent = 'CSV or TSV, up to 20 MiB';
+    get(side + '-drop').classList.remove('is-loaded', 'is-dragging', 'has-error');
+    get(side + '-drop').setAttribute('aria-busy', 'false');
   }
-  copy.querySelector('#compare').disabled = true;
-  copy.querySelector('#error').hidden = true; copy.querySelector('#error').textContent = '';
-  copy.querySelector('#file-status').textContent = '';
-  copy.querySelector('#search').removeAttribute('value');
-  download('<!doctype html>\n' + copy.outerHTML, 'rowglass-report.html', 'text/html');
+  for (const id of ['key-select', 'value-select']) {
+    const option = element('option', 'Choose files first'); option.value = '';
+    get(id).replaceChildren(option); get(id).disabled = true;
+  }
+  for (const [id, value] of [['delimiter', ','], ['row-sort', 'impact']]) {
+    for (const option of get(id).options) {
+      option.selected = option.value === value;
+      if (option.selected) option.setAttribute('selected', ''); else option.removeAttribute('selected');
+    }
+  }
+  get('mapping-fields').hidden = true;
+  for (const id of ['key-preview', 'value-preview']) get(id).removeAttribute('title');
+  get('comparison-form').setAttribute('aria-busy', 'false');
+  get('compare').disabled = true;
+  get('swap-files').disabled = true;
+  get('draft-notice').hidden = true;
+  get('export-html').disabled = false;
+  get('export-json').disabled = false;
+  get('export-scope').textContent = `Includes all ${report.rows.length.toLocaleString()} rows, even when filtered.`;
+  get('search').value = '';
+  get('search').removeAttribute('value');
+  get('clear-search').hidden = true;
+  get('error').hidden = true;
+  get('toast').hidden = true;
+  get('toast').classList.remove('is-visible');
+  get('calculation-details').removeAttribute('open');
+  // Remove every dynamic editor/detail value, including unselected source cells.
+  // Clear rendered report blocks too; the saved state reconstructs them on open.
+  for (const id of [
+    'key-preview', 'value-preview', 'error', 'file-status', 'detail-key', 'detail-status', 'detail-values', 'detail-note', 'toast',
+    'report-kind', 'report-title', 'summary-description', 'before-name', 'after-name', 'report-source',
+    'total-before', 'total-after', 'total-delta', 'count-before', 'count-after', 'percent-change', 'metric-label', 'key-summary', 'row-change-count',
+    'added-total', 'added-count', 'removed-total', 'removed-count', 'changed-total', 'changed-count',
+    'waterfall', 'equation', 'drivers', 'schema-note', 'filters', 'rows', 'key-heading', 'row-total', 'scope-note', 'page-note',
+  ]) get(id).replaceChildren();
+  get('detail-status').classList.remove('added', 'removed', 'changed', 'unchanged');
+  get('detail-status').classList.add('status-pill');
+  return '<!doctype html>\n' + copy.outerHTML;
+}
+function canExport() {
+  if (!draftDirty) return true;
+  showToast('Apply or discard the draft before saving this report.');
+  return false;
+}
+$('export-json').addEventListener('click', () => {
+  if (!canExport()) return;
+  download(JSON.stringify(report, null, 2), 'rowglass-report.json', 'application/json');
+  showToast(`JSON download started. Includes all ${report.rows.length.toLocaleString()} rows.`);
 });
-render();
+$('export-html').addEventListener('click', () => {
+  if (!canExport()) return;
+  download(cleanExport(), 'rowglass-report.html', 'text/html');
+  showToast(`HTML download started. Includes all ${report.rows.length.toLocaleString()} rows.`);
+});
+initializeFilters();
+resetDraft();
+resetView();
+renderReport();
 </script></body></html>

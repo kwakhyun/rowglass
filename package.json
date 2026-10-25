@@ -15,7 +15,8 @@
     "src/",
     "examples/",
     "README*",
-    "LICENSE"
+    "LICENSE",
+    "docs/third-party-notices.md"
   ],
   "scripts": {
     "test": "node --test",

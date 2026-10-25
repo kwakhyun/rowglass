@@ -37,7 +37,11 @@ open dist/index.html
 
 There are no npm dependencies to install. The package has not been published to npm; use the checkout commands below.
 
-In the browser, select the before and after files, confirm the delimiter, choose the key and metric, then select **Explain change**. Click a chart contribution to filter its rows, search by key, or inspect a row's exact values. **Save report** keeps an offline HTML copy; **Export JSON** saves the underlying result.
+Select **Compare files**, choose the before and after CSVs, and confirm **Match rows by** and **Column to total**. For TSV, expand **File format and limits** and change the separator. Select **Compare files** again to see the result.
+
+The total change comes first, followed by added rows, removed rows, and changed values. Select a group to filter the rows, search by key, sort by impact, or inspect the original values. On mobile, each row shows its difference and before/after values together.
+
+**Download report** saves an interactive HTML copy; **Download JSON** saves the data. Both include every row, even when the table is filtered. If you edit files or columns, apply or discard those changes before downloading. Printing includes the current table page, with its displayed range.
 
 ## Use the CLI
 
@@ -136,4 +140,4 @@ Run `npm test` for engine and CLI tests, and `npm run build` after changing the 
 
 The initial test suite was run locally on macOS with Node.js 22. The included GitHub Actions workflow defines Node.js 22/24 jobs on Linux, macOS, and Windows; those hosted jobs have not yet been run.
 
-Licensed under [MIT](LICENSE).
+Licensed under [MIT](LICENSE). Lucide icons have separate [third-party notices](docs/third-party-notices.md), also embedded in generated HTML.

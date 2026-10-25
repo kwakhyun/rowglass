@@ -1,259 +1,697 @@
-// This file is embedded after engine.mjs in a single browser module.
+// Embedded after engine.mjs in a single browser module; no external requests.
 const $ = id => document.getElementById(id);
 const initial = JSON.parse($('rowglass-data').textContent);
 let report = initial.report;
 let isSample = initial.sample;
 let filter = 'changes';
+let sort = 'impact';
 let page = 0;
 let loadRevision = 0;
+let loading = false;
+let draftDirty = false;
+let toastTimer;
 const pageSize = 40;
+const sides = ['before', 'after'];
 const files = { before: null, after: null };
 const parsed = { before: null, after: null };
 const labels = { added: 'Added', removed: 'Removed', changed: 'Value changed', unchanged: 'Same value' };
+const filterNames = { changes: 'Changes', added: 'Added', removed: 'Removed', changed: 'Value changed', all: 'All rows' };
+const sortNames = { impact: 'largest impact first', key: 'key order', increase: 'largest increase first', decrease: 'largest decrease first' };
+const filterButtons = new Map();
+let rowFacts = new WeakMap();
+let sortedCache = new Map();
+let selectionCache = null;
 
 function element(tag, text, className) {
-  const e = document.createElement(tag);
-  if (text !== undefined) e.textContent = text;
-  if (className) e.className = className;
-  return e;
+  const node = document.createElement(tag);
+  if (text !== undefined) node.textContent = text;
+  if (className) node.className = className;
+  return node;
 }
 function display(value, signed = false) {
   if (value === null) return '—';
   const negative = value.startsWith('-');
-  const raw = negative ? value.slice(1) : value;
-  const [whole, fraction] = raw.split('.');
+  const [whole, fraction] = (negative ? value.slice(1) : value).split('.');
   const sign = negative ? '−' : signed && !/^0(?:\.0+)?$/.test(value) ? '+' : '';
   return sign + whole.replace(/\B(?=(\d{3})+(?!\d))/g, ',') + (fraction === undefined ? '' : `.${fraction}`);
 }
 function units(value) { return BigInt(value.replace('.', '')); }
-function absolute(value) { const n = units(value); return n < 0n ? -n : n; }
-function direction(value) { return units(value) < 0n ? 'negative' : units(value) > 0n ? 'positive' : ''; }
-function byImpact(a, b) {
-  const aa = absolute(a.delta), bb = absolute(b.delta);
-  return aa > bb ? -1 : aa < bb ? 1 : a.key.join(' / ').localeCompare(b.key.join(' / '));
-}
-function setError(message = '') { $('error').textContent = message; $('error').hidden = !message; }
+function absolute(value) { const n = typeof value === 'bigint' ? value : units(value); return n < 0n ? -n : n; }
+function direction(value) { const n = units(value); return n < 0n ? 'negative' : n > 0n ? 'positive' : ''; }
 function keyLabel(row) { return row.key.length === 1 ? row.key[0] : JSON.stringify(row.key); }
-function signedPercent() {
-  const base = units(report.totals.before), delta = units(report.totals.delta);
-  if (base === 0n) return delta === 0n ? 'No change; baseline is zero' : 'No percentage: baseline is zero';
-  if (base < 0n) return 'Percentage omitted for a negative baseline';
-  const magnitude = delta < 0n ? -delta : delta;
-  const roundedTenths = (magnitude * 1000n + base / 2n) / base;
-  return `${delta < 0n ? '−' : delta > 0n ? '+' : ''}${roundedTenths / 10n}.${roundedTenths % 10n}% from before`;
+function countLabel(count, noun = 'row') { return `${count.toLocaleString()} ${noun}${count === 1 ? '' : 's'}`; }
+function setDirection(node, value) {
+  node.classList.remove('positive', 'negative');
+  const className = direction(value);
+  if (className) node.classList.add(className);
+}
+function scrollToRows() {
+  const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  $('rows-label').scrollIntoView({ behavior: reduced ? 'auto' : 'smooth', block: 'start' });
+}
+function focusReport() {
+  requestAnimationFrame(() => {
+    $('report-title').focus({ preventScroll: true });
+    $('report-title').scrollIntoView({ behavior: 'auto', block: 'start' });
+  });
+}
+function setError(message = '') {
+  $('error').textContent = message;
+  $('error').hidden = !message;
+}
+function showToast(message) {
+  clearTimeout(toastTimer);
+  $('toast').textContent = message;
+  $('toast').hidden = false;
+  $('toast').classList.add('is-visible');
+  toastTimer = setTimeout(() => {
+    $('toast').hidden = true;
+    $('toast').classList.remove('is-visible');
+    $('toast').textContent = '';
+  }, 5500);
+}
+function setDirty(value) {
+  draftDirty = value;
+  $('draft-notice').hidden = !value;
+  $('export-html').disabled = value;
+  $('export-json').disabled = value;
+  $('export-scope').textContent = `Includes all ${report.rows.length.toLocaleString()} rows, even when filtered.`;
+}
+function setBusy(value) {
+  loading = value;
+  $('comparison-form').setAttribute('aria-busy', String(value));
+  for (const side of sides) $(side + '-drop').setAttribute('aria-busy', String(value && !!files[side]));
+  $('compare').disabled = value || !parsed.before || !parsed.after || $('key-select').disabled;
+  $('swap-files').disabled = !files.before && !files.after;
+}
+function draftHint(prefix) {
+  return `${prefix}${draftDirty ? ' Draft changes are not in the report yet.' : ''}`;
 }
 
-function render() {
-  $('row-dialog').close();
-  $('detail-key').textContent = '';
-  $('detail-values').replaceChildren();
-  $('detail-note').textContent = '';
-  $('sample-badge').hidden = !isSample;
+function signedPercent() {
+  const base = units(report.totals.before), delta = units(report.totals.delta);
+  if (base === 0n) return delta === 0n ? 'No change; baseline is zero' : 'Percentage unavailable: baseline is zero';
+  if (base < 0n) return 'Percentage omitted for a negative baseline';
+  const tenths = (absolute(delta) * 1000n + base / 2n) / base;
+  return `${delta < 0n ? '−' : delta > 0n ? '+' : ''}${tenths / 10n}.${tenths % 10n}% from before`;
+}
+function prepareRows() {
+  rowFacts = new WeakMap();
+  sortedCache = new Map();
+  selectionCache = null;
+  report.rows.forEach((row, index) => {
+    const key = keyLabel(row), delta = units(row.delta);
+    rowFacts.set(row, { key, query: key.toLocaleLowerCase(), delta, magnitude: absolute(delta), index });
+  });
+}
+function sortedRows() {
+  if (sortedCache.has(sort)) return sortedCache.get(sort);
+  const result = [...report.rows].sort((a, b) => {
+    const aa = rowFacts.get(a), bb = rowFacts.get(b);
+    if (sort === 'impact' && aa.magnitude !== bb.magnitude) return aa.magnitude > bb.magnitude ? -1 : 1;
+    if (sort === 'increase' && aa.delta !== bb.delta) return aa.delta > bb.delta ? -1 : 1;
+    if (sort === 'decrease' && aa.delta !== bb.delta) return aa.delta < bb.delta ? -1 : 1;
+    return aa.key.localeCompare(bb.key) || aa.index - bb.index;
+  });
+  sortedCache.set(sort, result);
+  return result;
+}
+function selectedRows() {
+  const query = $('search').value.toLocaleLowerCase();
+  if (selectionCache?.sort === sort && selectionCache.filter === filter && selectionCache.query === query) return selectionCache.rows;
+  const rows = sortedRows().filter(row => (
+    filter === 'all' || (filter === 'changes' && row.status !== 'unchanged') || row.status === filter
+  ) && rowFacts.get(row).query.includes(query));
+  selectionCache = { sort, filter, query, rows };
+  return rows;
+}
+function initializeFilters() {
+  $('filters').replaceChildren();
+  for (const [value, label] of Object.entries(filterNames)) {
+    const button = element('button', undefined, 'filter-chip');
+    button.type = 'button';
+    button.dataset.filter = value;
+    const count = element('span', '', 'filter-count');
+    button.append(element('span', label), count);
+    button.addEventListener('click', () => selectFilter(value));
+    filterButtons.set(value, { button, count });
+    $('filters').append(button);
+  }
+}
+function updateFilters() {
+  const counts = {
+    changes: report.counts.added + report.counts.removed + report.counts.changed,
+    added: report.counts.added, removed: report.counts.removed, changed: report.counts.changed,
+    all: report.rows.length,
+  };
+  for (const [value, { button, count }] of filterButtons) {
+    count.textContent = counts[value].toLocaleString();
+    button.classList.toggle('active', filter === value);
+    button.setAttribute('aria-pressed', String(filter === value));
+  }
+  for (const status of ['added', 'removed', 'changed']) {
+    $('contrib-' + status).setAttribute('aria-pressed', String(filter === status));
+  }
+}
+function selectFilter(value, scroll = false) {
+  filter = value;
+  page = 0;
+  renderRows();
+  if (scroll) scrollToRows();
+}
+function resetView() {
+  filter = 'changes'; sort = 'impact'; page = 0;
+  $('search').value = '';
+  $('row-sort').value = 'impact';
+}
+function tableCell(label, header, text, className) {
+  const cell = element('td', text, className);
+  cell.dataset.label = label;
+  cell.setAttribute('headers', header);
+  return cell;
+}
+function renderRows() {
+  updateFilters();
+  const selected = selectedRows();
+  const pageCount = Math.max(1, Math.ceil(selected.length / pageSize));
+  page = Math.max(0, Math.min(page, pageCount - 1));
+  const fragment = document.createDocumentFragment();
+  for (const row of selected.slice(page * pageSize, (page + 1) * pageSize)) {
+    const tr = element('tr');
+    tr.dataset.status = row.status;
+    const keyCell = tableCell(report.keys.join(' + '), 'key-heading');
+    const button = element('button', rowFacts.get(row).key, 'key-button');
+    button.type = 'button';
+    button.setAttribute('aria-label', `Inspect row ${rowFacts.get(row).key}`);
+    button.addEventListener('click', () => showRow(row));
+    keyCell.append(button);
+    const statusCell = tableCell('Status', 'status-heading');
+    statusCell.append(element('span', labels[row.status], `status-pill ${row.status}`));
+    tr.append(
+      keyCell, statusCell,
+      tableCell('Before', 'before-heading', display(row.before), 'number'),
+      tableCell('After', 'after-heading', display(row.after), 'number'),
+      tableCell('Contribution', 'contribution-heading', display(row.delta, true), `number ${direction(row.delta)}`),
+    );
+    fragment.append(tr);
+  }
+  $('rows').replaceChildren(fragment);
+  $('empty-state').hidden = selected.length !== 0;
+  const noChanges = filter === 'changes' && !$('search').value && report.counts.added + report.counts.removed + report.counts.changed === 0;
+  $('empty-title').textContent = noChanges ? 'No row changes' : 'No matching rows';
+  $('empty-description').textContent = noChanges ? 'The selected values match. Choose All rows to inspect them.' : 'Try a different search or reset the filters.';
+  $('clear-search').hidden = $('search').value.length === 0;
+  const first = selected.length ? page * pageSize + 1 : 0;
+  const last = Math.min((page + 1) * pageSize, selected.length);
+  $('page-note').textContent = `${first.toLocaleString()}–${last.toLocaleString()} of ${countLabel(selected.length)}; ${sortNames[sort]}`;
+  $('prev-page').disabled = page === 0;
+  $('next-page').disabled = page >= pageCount - 1;
+}
+
+function renderDrivers() {
+  let increase = null, decrease = null;
+  for (const row of report.rows) {
+    const delta = rowFacts.get(row).delta;
+    if (delta > 0n && (!increase || delta > rowFacts.get(increase).delta)) increase = row;
+    if (delta < 0n && (!decrease || delta < rowFacts.get(decrease).delta)) decrease = row;
+  }
+  $('drivers').replaceChildren();
+  for (const [label, row] of [['Largest increase', increase], ['Largest decrease', decrease]]) {
+    if (!row) continue;
+    const button = element('button', undefined, `driver ${direction(row.delta)}`);
+    button.type = 'button';
+    button.setAttribute('aria-label', `${label}: ${keyLabel(row)}, ${display(row.delta, true)}. Inspect row.`);
+    button.append(
+      element('span', label, 'driver-label'),
+      element('strong', keyLabel(row), 'driver-key'),
+      element('span', display(row.delta, true), 'driver-amount'),
+      element('small', `${labels[row.status]}: ${display(row.before)} → ${display(row.after)}`, 'driver-meta'),
+    );
+    button.addEventListener('click', () => showRow(row));
+    $('drivers').append(button);
+  }
+  if (!increase && !decrease) $('drivers').append(element('p', 'No rows have a nonzero contribution to the total.', 'aside-note'));
+}
+function renderReport() {
+  clearDetails(true);
+  prepareRows();
+  const changedCount = report.counts.added + report.counts.removed + report.counts.changed;
+  $('sample-banner').hidden = !isSample;
+  $('report-kind').textContent = isSample ? 'Example report' : 'Your comparison';
+  $('report-title').textContent = 'Your totals, explained.';
+  $('summary-description').textContent = changedCount === 0
+    ? 'No row changes. The total is unchanged.'
+    : units(report.totals.delta) === 0n
+      ? `${countLabel(changedCount)} changed, with no net change to the total.`
+      : `${countLabel(changedCount)} ${changedCount === 1 ? 'accounts' : 'account'} for this change in ${report.value}.`;
+  $('before-name').textContent = report.beforeName;
+  $('after-name').textContent = report.afterName;
   $('report-source').textContent = `${report.beforeName} → ${report.afterName}`;
   $('metric-label').textContent = report.value;
+  $('key-summary').textContent = report.keys.join(' + ');
+  $('row-change-count').textContent = `${countLabel(changedCount)} changed`;
   $('total-before').textContent = display(report.totals.before);
   $('total-after').textContent = display(report.totals.after);
   $('total-delta').textContent = display(report.totals.delta, true);
-  $('total-delta').className = direction(report.totals.delta);
-  $('count-before').textContent = `${report.counts.before.toLocaleString()} rows · ${report.value}`;
-  $('count-after').textContent = `${report.counts.after.toLocaleString()} rows · ${report.value}`;
+  setDirection($('total-delta'), report.totals.delta);
+  $('count-before').textContent = countLabel(report.counts.before);
+  $('count-after').textContent = countLabel(report.counts.after);
   $('percent-change').textContent = signedPercent();
   $('scope-note').textContent = `Matched by ${report.keys.join(' + ')}. “Value changed” refers only to ${report.value}.`;
   $('row-total').textContent = report.rows.length.toLocaleString();
   $('key-heading').textContent = report.keys.join(' + ');
   $('schema-note').textContent = report.schema.added.length || report.schema.removed.length
-    ? `Schema changes: added columns: ${report.schema.added.join(', ') || 'none'}; removed columns: ${report.schema.removed.join(', ') || 'none'}. Non-metric cell changes are outside this comparison.`
-    : 'Non-metric cell changes are outside this comparison. Row order does not affect the result.';
-  const term = v => units(v) === 0n ? `+${display(v)}` : display(v, true);
+    ? `Column changes: added ${report.schema.added.join(', ') || 'none'}; removed ${report.schema.removed.join(', ') || 'none'}. Other cell values are not compared.`
+    : 'Other cell values are not compared. Row order does not affect this result.';
+  const statuses = ['added', 'removed', 'changed'];
+  const maxContribution = statuses.reduce((largest, status) => {
+    const amount = absolute(report.totals[status]);
+    return amount > largest ? amount : largest;
+  }, 0n);
+  for (const status of statuses) {
+    const value = report.totals[status];
+    $(status + '-total').textContent = display(value, true);
+    setDirection($(status + '-total'), value);
+    $(status + '-count').textContent = countLabel(report.counts[status]);
+    const width = maxContribution === 0n ? 0 : Number(absolute(value) * 10000n / maxContribution) / 100;
+    $(status + '-bar').style.width = `${width}%`;
+    $('contrib-' + status).setAttribute('aria-label', `${labels[status]}: ${display(value, true)} across ${countLabel(report.counts[status])}. Show rows.`);
+  }
+  const term = value => units(value) === 0n ? `+${display(value)}` : display(value, true);
   $('equation').textContent = `${display(report.totals.before)} ${term(report.totals.added)} ${term(report.totals.removed)} ${term(report.totals.changed)} = ${display(report.totals.after)}`;
   drawWaterfall();
-  const drivers = [...report.rows].filter(r => units(r.delta) !== 0n).sort(byImpact).slice(0, 3);
-  $('drivers').replaceChildren();
-  if (!drivers.length) $('drivers').append(element('p', 'No non-zero row contributions.', 'aside-note'));
-  for (const row of drivers) {
-    const button = element('button', undefined, 'driver');
-    button.append(element('strong', keyLabel(row)), element('span', display(row.delta, true), direction(row.delta)), element('small', `${labels[row.status]} · ${display(row.before)} → ${display(row.after)}`));
-    button.addEventListener('click', () => showRow(row));
-    $('drivers').append(button);
-  }
+  renderDrivers();
   renderRows();
+  setDirty(draftDirty);
 }
 
-function renderRows() {
-  const counts = report.counts;
-  const filters = [ ['changes', 'Changes', counts.added + counts.removed + counts.changed], ['added', 'Added', counts.added], ['removed', 'Removed', counts.removed], ['changed', 'Value changed', counts.changed], ['all', 'All', report.rows.length] ];
-  $('filters').replaceChildren();
-  for (const [value, label, count] of filters) {
-    const b = element('button', label, filter === value ? 'active' : '');
-    b.append(element('span', String(count)));
-    b.setAttribute('aria-pressed', String(filter === value));
-    b.addEventListener('click', () => selectFilter(value));
-    $('filters').append(b);
-  }
-  const query = $('search').value.toLocaleLowerCase();
-  const selected = report.rows.filter(r => (filter === 'all' || filter === 'changes' && r.status !== 'unchanged' || r.status === filter) && keyLabel(r).toLocaleLowerCase().includes(query)).sort(byImpact);
-  const pageCount = Math.max(1, Math.ceil(selected.length / pageSize));
-  page = Math.min(page, pageCount - 1);
-  $('rows').replaceChildren();
-  for (const row of selected.slice(page * pageSize, (page + 1) * pageSize)) {
-    const tr = element('tr');
-    const keyCell = element('td');
-    const b = element('button', keyLabel(row), 'key-button');
-    b.setAttribute('aria-label', `Inspect row ${keyLabel(row)}`);
-    b.addEventListener('click', () => showRow(row));
-    keyCell.append(b);
-    const statusCell = element('td');
-    statusCell.append(element('span', labels[row.status], `status-pill ${row.status}`));
-    tr.append(keyCell, statusCell, element('td', display(row.before), 'number'), element('td', display(row.after), 'number'), element('td', display(row.delta, true), `number ${direction(row.delta)}`));
-    $('rows').append(tr);
-  }
-  if (!selected.length) { const tr = element('tr'); const td = element('td', 'No rows match this view.', 'empty'); td.colSpan = 5; tr.append(td); $('rows').append(tr); }
-  $('page-note').textContent = `${selected.length ? page * pageSize + 1 : 0}–${Math.min((page + 1) * pageSize, selected.length)} of ${selected.length.toLocaleString()} rows · largest impact first`;
-  $('prev-page').disabled = page === 0;
-  $('next-page').disabled = page >= pageCount - 1;
-}
-function selectFilter(value, scroll = false) {
-  filter = value; page = 0; renderRows();
-  if (scroll) $('filters').scrollIntoView({ behavior: 'smooth', block: 'center' });
-}
-
-function svgNode(tag, attrs, text) {
-  const n = document.createElementNS('http://www.w3.org/2000/svg', tag);
-  for (const [key, value] of Object.entries(attrs || {})) n.setAttribute(key, String(value));
-  if (text !== undefined) n.textContent = text;
-  return n;
+function svgNode(tag, attributes, text) {
+  const node = document.createElementNS('http://www.w3.org/2000/svg', tag);
+  for (const [key, value] of Object.entries(attributes || {})) node.setAttribute(key, String(value));
+  if (text !== undefined) node.textContent = text;
+  return node;
 }
 function drawWaterfall() {
-  const t = report.totals;
-  const n = key => Number(t[key]);
-  const addedEnd = n('before') + n('added'), removedEnd = addedEnd + n('removed');
+  const totals = report.totals;
+  const before = units(totals.before), after = units(totals.after);
+  const addedEnd = before + units(totals.added), removedEnd = addedEnd + units(totals.removed);
   const bars = [
-    { label: 'Before', from: 0, to: n('before'), exact: t.before },
-    { label: 'Added', from: n('before'), to: addedEnd, exact: t.added, filter: 'added' },
-    { label: 'Removed', from: addedEnd, to: removedEnd, exact: t.removed, filter: 'removed' },
-    { label: 'Value changed', from: removedEnd, to: n('after'), exact: t.changed, filter: 'changed' },
-    { label: 'After', from: 0, to: n('after'), exact: t.after },
+    { label: 'Before', from: 0n, to: before, exact: totals.before },
+    { label: 'Added', from: before, to: addedEnd, exact: totals.added, filter: 'added' },
+    { label: 'Removed', from: addedEnd, to: removedEnd, exact: totals.removed, filter: 'removed' },
+    { label: 'Value changed', from: removedEnd, to: after, exact: totals.changed, filter: 'changed' },
+    { label: 'After', from: 0n, to: after, exact: totals.after },
   ];
-  const min = Math.min(0, ...bars.flatMap(b => [b.from, b.to]));
-  const max = Math.max(0, ...bars.flatMap(b => [b.from, b.to]));
-  const range = max - min || 1;
-  const y = value => 200 - (value - min) / range * 154;
-  const svg = svgNode('svg', { viewBox: '0 0 660 254', role: 'img', 'aria-label': `Total changed from ${t.before} to ${t.after}. Added ${t.added}, removed contribution ${t.removed}, matched value changes ${t.changed}.` });
-  svg.append(svgNode('line', { x1: 22, x2: 640, y1: y(0), y2: y(0), stroke: '#dce2d8', 'stroke-width': 1 }));
-  bars.forEach((bar, i) => {
-    const x = 37 + i * 127, width = 80;
+  const ends = [0n, ...bars.flatMap(bar => [bar.from, bar.to])];
+  const min = ends.reduce((a, b) => a < b ? a : b), max = ends.reduce((a, b) => a > b ? a : b);
+  const range = max - min || 1n;
+  // Only the chart geometry is approximate; arithmetic and labels stay exact.
+  const y = value => 200 - Number((value - min) * 154000n / range) / 1000;
+  const svg = svgNode('svg', { viewBox: '0 0 660 254', role: 'group', 'aria-label': `Total changed from ${totals.before} to ${totals.after}. Added ${totals.added}, removed contribution ${totals.removed}, matched value changes ${totals.changed}.` });
+  svg.append(svgNode('line', { x1: 22, x2: 640, y1: y(0n), y2: y(0n), stroke: '#d9dfe7', 'stroke-width': 1 }));
+  bars.forEach((bar, index) => {
+    const x = 37 + index * 127, width = 80;
     const top = Math.min(y(bar.from), y(bar.to));
     const height = Math.max(2, Math.abs(y(bar.from) - y(bar.to)));
-    const color = bar.filter ? units(bar.exact) < 0n ? '#bd7151' : '#6b9272' : '#233e31';
-    const g = svgNode('g', bar.filter ? { class: 'chart-bar', role: 'button', tabindex: 0, 'aria-label': `${bar.label}: ${display(bar.exact, true)}. Show rows.` } : {});
-    g.append(svgNode('rect', { x, y: top, width, height, fill: color, rx: 3 }));
+    const color = bar.filter ? units(bar.exact) < 0n ? '#b45323' : '#2563eb' : '#4e5968';
+    const group = svgNode('g', bar.filter ? { class: 'chart-bar', role: 'button', tabindex: 0, 'aria-label': `${bar.label}: ${display(bar.exact, true)}. Show rows.` } : {});
+    group.append(svgNode('rect', { x, y: top, width, height, fill: color, rx: 3 }));
     const exact = display(bar.exact, !!bar.filter);
-    const valueText = exact.length <= 16 ? exact : Number(bar.exact).toExponential(2);
-    g.append(svgNode('text', { x: x + width / 2, y: top - 10, 'text-anchor': 'middle', fill: '#263e2f', 'font-size': 12, 'font-weight': 550 }, valueText));
-    g.append(svgNode('text', { x: x + width / 2, y: 232, 'text-anchor': 'middle', fill: '#65746c', 'font-size': 11 }, bar.label));
-    g.append(svgNode('title', {}, `${bar.label}: ${exact}`));
+    group.append(svgNode('text', { x: x + width / 2, y: top - 10, 'text-anchor': 'middle', fill: '#6b7684', 'font-size': exact.length > 16 ? 9 : 12, 'font-weight': 550 }, exact.length > 22 ? `${exact.slice(0, 19)}…` : exact));
+    group.append(svgNode('text', { x: x + width / 2, y: 232, 'text-anchor': 'middle', fill: '#6b7684', 'font-size': 11 }, bar.label));
+    group.append(svgNode('title', {}, `${bar.label}: ${exact}`));
     if (bar.filter) {
-      g.addEventListener('click', () => selectFilter(bar.filter, true));
-      g.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectFilter(bar.filter, true); } });
+      group.addEventListener('click', () => selectFilter(bar.filter, true));
+      group.addEventListener('keydown', event => {
+        if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); selectFilter(bar.filter, true); }
+      });
     }
-    svg.append(g);
-    if (i > 0 && i < 4) svg.append(svgNode('line', { x1: x + width, x2: x + 127, y1: y(bar.to), y2: y(bar.to), stroke: '#c1cbbf', 'stroke-dasharray': '3 3' }));
+    svg.append(group);
+    if (index > 0 && index < 4) svg.append(svgNode('line', { x1: x + width, x2: x + 127, y1: y(bar.to), y2: y(bar.to), stroke: '#d9dfe7', 'stroke-dasharray': '3 3' }));
   });
   $('waterfall').replaceChildren(svg);
 }
-function showRow(row) {
-  $('detail-key').textContent = keyLabel(row);
+
+function clearDetails(close = false) {
+  if (close && $('row-dialog').open) $('row-dialog').close();
+  $('detail-key').textContent = '';
+  $('detail-status').textContent = '';
+  $('detail-status').classList.remove('added', 'removed', 'changed', 'unchanged');
+  $('detail-status').classList.add('status-pill');
   $('detail-values').replaceChildren();
-  for (const [label, value] of [[report.beforeName, display(row.before)], [report.afterName, display(row.after)], ['Contribution to total change', display(row.delta, true)]]) {
+  $('detail-note').textContent = '';
+}
+function showRow(row) {
+  clearDetails();
+  $('detail-key').textContent = keyLabel(row);
+  $('detail-status').textContent = labels[row.status];
+  $('detail-status').classList.add(row.status);
+  for (const [index, [label, value]] of [[report.beforeName, display(row.before)], [report.afterName, display(row.after)], ['Contribution to total change', display(row.delta, true)]].entries()) {
     const line = element('div', undefined, 'detail-item');
-    line.append(element('span', label), element('strong', value));
+    const amount = element('strong', value);
+    if (index === 2) setDirection(amount, row.delta);
+    line.append(element('span', label), amount);
     $('detail-values').append(line);
   }
-  $('detail-note').textContent = row.status === 'added' ? 'This key exists only in the after file. Its entire value contributes to the total change.' : row.status === 'removed' ? 'This key exists only in the before file. Its contribution is the negative of its original value.' : `After minus before for ${report.value}. Other fields are not compared. This is an arithmetic explanation, not a business-cause inference.`;
+  $('detail-note').textContent = row.status === 'added'
+    ? 'This key exists only in the after file. Its entire value contributes to the total change.'
+    : row.status === 'removed'
+      ? 'This key exists only in the before file. Its contribution is the negative of its original value.'
+      : `After minus before for ${report.value}. Other fields are not compared. This describes the arithmetic, not the business cause.`;
   $('row-dialog').showModal();
 }
 
+function clearMapping() {
+  $('mapping-fields').hidden = true;
+  for (const id of ['key-select', 'value-select']) {
+    const option = element('option', 'Choose files first');
+    option.value = '';
+    $(id).replaceChildren(option);
+    $(id).disabled = true;
+  }
+  for (const id of ['key-preview', 'value-preview']) {
+    $(id).textContent = '';
+    $(id).removeAttribute('title');
+  }
+  $('compare').disabled = true;
+}
+function updateFileLabels() {
+  for (const side of sides) {
+    $(side + '-file-label').textContent = files[side]?.name || 'Choose a CSV file';
+    $(side + '-drop').classList.toggle('is-loaded', !!files[side]);
+    $(side + '-drop').classList.remove('is-dragging', 'has-error');
+    $(side + '-file').removeAttribute('aria-invalid');
+    $(side + '-file-meta').textContent = files[side] ? 'Ready to read' : 'CSV or TSV, up to 20 MiB';
+  }
+}
+function preview(dataset, column) {
+  const index = dataset.headers.indexOf(column);
+  if (index < 0 || !dataset.rows.length) return 'No data rows';
+  return dataset.rows.slice(0, 3).map(row => {
+    const value = row[index];
+    return JSON.stringify(value.length > 60 ? value.slice(0, 57) + '…' : value);
+  }).join(', ');
+}
+function updatePreviews() {
+  if (!parsed.before || !parsed.after) return;
+  for (const [selectId, previewId] of [['key-select', 'key-preview'], ['value-select', 'value-preview']]) {
+    const column = $(selectId).value;
+    const text = `Before: ${preview(parsed.before, column)}. After: ${preview(parsed.after, column)}.`;
+    $(previewId).textContent = text;
+    $(previewId).title = text;
+  }
+}
+function setMapping(previousKey, previousValue) {
+  const common = parsed.before.headers.filter(header => parsed.after.headers.includes(header));
+  if (common.length < 2) throw new Error('The files need at least two shared columns: one key and one numeric metric.');
+  for (const id of ['key-select', 'value-select']) {
+    const select = $(id);
+    select.replaceChildren();
+    for (const header of common) {
+      const option = element('option', header);
+      option.value = header;
+      select.append(option);
+    }
+    select.disabled = false;
+  }
+  $('key-select').value = common.includes(previousKey) ? previousKey : common.find(header => /^(id|account|name|key)$/i.test(header)) || common[0];
+  $('value-select').value = common.includes(previousValue) && previousValue !== $('key-select').value ? previousValue
+    : common.find(header => /^(amount|revenue|cost|total|value|usage)$/i.test(header) && header !== $('key-select').value) || common.find(header => header !== $('key-select').value);
+  $('mapping-fields').hidden = false;
+  updatePreviews();
+}
+function readError(error) {
+  const raw = error instanceof Error ? error.message : String(error);
+  const hint = /UTF-8|encoded data/i.test(raw)
+    ? 'Re-export the file as UTF-8 CSV or TSV, then choose it again.'
+    : /20 MiB|100,000 row/.test(raw)
+      ? 'Use a smaller export within the file and row limits.'
+      : /decimal|integer digit|decimal place/.test(raw)
+        ? 'Choose a numeric column without blanks, currency symbols, separators, or surrounding spaces.'
+        : /duplicate key|blank key/.test(raw)
+          ? 'Choose a unique, nonblank row key. Use the CLI if the key spans multiple columns.'
+          : 'Check the selected columns, file contents, and delimiter, then try again.';
+  return `${raw} ${hint} The current report is unchanged.`;
+}
+async function readDataset(file) {
+  if (file.size > MAX_TEXT_BYTES) throw new Error('File exceeds the 20 MiB limit.');
+  const buffer = await file.arrayBuffer();
+  if (buffer.byteLength > MAX_TEXT_BYTES) throw new Error('File exceeds the 20 MiB limit.');
+  let text;
+  try { text = new TextDecoder('utf-8', { fatal: true }).decode(buffer); }
+  catch (error) { throw new Error(`File must be valid UTF-8. ${error.message}`); }
+  return text;
+}
 async function loadFiles() {
   const revision = ++loadRevision;
+  const snapshot = { ...files };
+  const delimiter = $('delimiter').value === 'tab' ? '\t' : ',';
+  const previousKey = $('key-select').value, previousValue = $('value-select').value;
+  parsed.before = null; parsed.after = null;
+  clearMapping();
   setError();
-  $('compare').disabled = true;
-  $('key-select').disabled = true;
-  $('value-select').disabled = true;
-  if (!files.before || !files.after) { $('file-status').textContent = 'Choose both files to configure your comparison. The report below is unchanged.'; return; }
-  $('file-status').textContent = 'Reading files locally… The report below is unchanged until you compare.';
-  try {
-    const delimiter = $('delimiter').value === 'tab' ? '\t' : ',';
-    const datasets = await Promise.all(['before', 'after'].map(async side => {
-      const file = files[side];
-      if (file.size > 20 * 1024 * 1024) throw new Error(`${side}: file exceeds the 20 MiB limit.`);
-      const text = new TextDecoder('utf-8', { fatal: true }).decode(await file.arrayBuffer());
-      return parseCSV(text, { delimiter });
-    }));
-    if (revision !== loadRevision) return;
-    [parsed.before, parsed.after] = datasets;
-    const common = parsed.before.headers.filter(h => parsed.after.headers.includes(h));
-    if (common.length < 2) throw new Error('The files need at least two shared columns: one key and one numeric metric.');
-    for (const id of ['key-select', 'value-select']) {
-      const select = $(id); select.replaceChildren();
-      for (const header of common) { const option = element('option', header); option.value = header; select.append(option); }
-      select.disabled = false;
+  updateFileLabels();
+  setBusy(true);
+  for (const side of sides) if (snapshot[side]) $(side + '-file-meta').textContent = 'Reading locally…';
+  $('file-status').textContent = draftHint('Reading selected files locally.');
+  const results = await Promise.allSettled(sides.map(async side => snapshot[side] ? parseCSV(await readDataset(snapshot[side]), { delimiter }) : null));
+  if (revision !== loadRevision) return;
+  const errors = [];
+  results.forEach((result, index) => {
+    const side = sides[index];
+    if (result.status === 'fulfilled') {
+      parsed[side] = result.value;
+      $(side + '-drop').classList.remove('has-error');
+      $(side + '-file').removeAttribute('aria-invalid');
+      $(side + '-file-meta').textContent = result.value
+        ? `${countLabel(result.value.rows.length)}, ${countLabel(result.value.headers.length, 'column')}`
+        : 'CSV or TSV, up to 20 MiB';
+    } else {
+      $(side + '-drop').classList.add('has-error');
+      $(side + '-file').setAttribute('aria-invalid', 'true');
+      $(side + '-file-meta').textContent = 'Could not read this file';
+      errors.push(`${side === 'before' ? 'Before' : 'After'}: ${readError(result.reason)}`);
     }
-    $('key-select').value = common.find(h => /^(id|account|name|key)$/i.test(h)) || common[0];
-    $('value-select').value = common.find(h => /^(amount|revenue|cost|total|value|usage)$/i.test(h) && h !== $('key-select').value) || common.find(h => h !== $('key-select').value);
-    $('compare').disabled = false;
-    $('file-status').textContent = 'Files ready. Confirm the key and metric, then select “Explain change”.';
-  } catch (e) { if (revision === loadRevision) { setError(e.message); $('file-status').textContent = 'The report below is unchanged.'; } }
+  });
+  if (errors.length) {
+    setError(errors.join('\n'));
+    $('file-status').textContent = draftHint('Resolve the file error to continue.');
+  } else if (parsed.before && parsed.after) {
+    try {
+      setMapping(previousKey, previousValue);
+      $('file-status').textContent = draftHint('Files ready. Confirm the key and metric, then select “Compare files”.');
+    } catch (error) {
+      clearMapping();
+      setError(readError(error));
+      $('file-status').textContent = draftHint('Check that both files have matching column names.');
+    }
+  } else {
+    const missing = snapshot.before ? 'after' : snapshot.after ? 'before' : 'before and after';
+    $('file-status').textContent = draftHint(`Choose the ${missing} ${snapshot.before || snapshot.after ? 'file' : 'files'} to continue.`);
+  }
+  setBusy(false);
 }
-for (const side of ['before', 'after']) $(side + '-file').addEventListener('change', e => {
-  files[side] = e.target.files[0] || null;
-  $(side + '-file-label').textContent = files[side]?.name || 'Choose a CSV file';
+function resetDraft() {
+  ++loadRevision;
+  clearDetails(true);
+  for (const side of sides) {
+    files[side] = null; parsed[side] = null;
+    $(side + '-file').value = '';
+    $(side + '-file').removeAttribute('aria-invalid');
+    $(side + '-drop').classList.remove('has-error');
+  }
+  $('delimiter').value = ',';
+  clearMapping();
+  updateFileLabels();
+  setError();
+  setBusy(false);
+  setDirty(false);
+  $('file-status').textContent = 'Choose two files to start. The current report is unchanged.';
+}
+function openComparison() {
+  if (!$('comparison-dialog').open) $('comparison-dialog').showModal();
+}
+function acceptFile(side, file) {
+  if (!file) return; // Canceling the picker preserves the existing selection.
+  files[side] = file;
+  setDirty(true);
+  loadFiles();
+}
+for (const side of sides) {
+  $(side + '-file').addEventListener('change', event => acceptFile(side, event.target.files[0]));
+  const drop = $(side + '-drop');
+  let dragDepth = 0;
+  drop.addEventListener('dragenter', event => {
+    event.preventDefault();
+    dragDepth += 1;
+    drop.classList.add('is-dragging');
+  });
+  drop.addEventListener('dragover', event => { event.preventDefault(); if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy'; });
+  drop.addEventListener('dragleave', event => {
+    event.preventDefault();
+    dragDepth = Math.max(0, dragDepth - 1);
+    if (!dragDepth) drop.classList.remove('is-dragging');
+  });
+  drop.addEventListener('drop', event => {
+    event.preventDefault(); event.stopPropagation();
+    dragDepth = 0;
+    drop.classList.remove('is-dragging');
+    const dropped = event.dataTransfer?.files;
+    if (!dropped?.length) return;
+    if (dropped.length !== 1) { setError('Choose one file for each side. Drop the before and after files into their separate areas.'); return; }
+    // The File object is the source of truth; no browser-specific FileList mutation.
+    $(side + '-file').value = '';
+    acceptFile(side, dropped[0]);
+  });
+}
+$('delimiter').addEventListener('change', () => { setDirty(true); loadFiles(); });
+for (const id of ['key-select', 'value-select']) $(id).addEventListener('change', () => {
+  setDirty(true);
+  setError();
+  updatePreviews();
+  $('file-status').textContent = draftHint('Mapping updated. Select “Compare files” to apply it.');
+});
+$('swap-files').addEventListener('click', () => {
+  [files.before, files.after] = [files.after, files.before];
+  for (const side of sides) $(side + '-file').value = '';
+  setDirty(true);
   loadFiles();
 });
-$('delimiter').addEventListener('change', loadFiles);
-$('compare').addEventListener('click', () => {
+$('comparison-form').addEventListener('submit', event => {
+  event.preventDefault();
+  if (loading) return;
   try {
     setError();
+    if (!parsed.before || !parsed.after || $('key-select').disabled) throw new Error('Choose two valid files before comparing.');
     if ($('key-select').value === $('value-select').value) throw new Error('Choose different columns for the row key and numeric metric.');
-    report = reconcile(parsed.before, parsed.after, { keys: [$('key-select').value], value: $('value-select').value, beforeName: files.before.name, afterName: files.after.name });
-    isSample = false; filter = 'changes'; page = 0; $('search').value = '';
-    $('file-status').textContent = 'Comparison ready. Save report to keep an offline copy with these values.';
-    render();
-  } catch (e) { setError(e.message); $('file-status').textContent = 'Comparison failed. The report below is unchanged.'; }
+    const nextReport = reconcile(parsed.before, parsed.after, {
+      keys: [$('key-select').value], value: $('value-select').value,
+      beforeName: files.before.name, afterName: files.after.name,
+    });
+    report = nextReport;
+    isSample = false;
+    setDirty(false);
+    resetView();
+    renderReport();
+    $('file-status').textContent = 'These files and columns match the current report.';
+    $('comparison-dialog').close();
+    focusReport();
+    showToast('Comparison ready. You can save the complete report.');
+  } catch (error) {
+    setError(readError(error));
+    $('file-status').textContent = draftHint('Comparison could not be completed.');
+  }
+});
+for (const id of ['new-comparison', 'open-comparison-inline', 'resume-comparison']) $(id).addEventListener('click', openComparison);
+$('close-comparison').addEventListener('click', () => $('comparison-dialog').close());
+$('comparison-dialog').addEventListener('close', () => {
+  for (const side of sides) $(side + '-drop').classList.remove('is-dragging');
+  setDirty(draftDirty);
+});
+$('reset-comparison').addEventListener('click', resetDraft);
+$('discard-draft').addEventListener('click', () => {
+  resetDraft();
+  showToast('Draft discarded. The current report is unchanged.');
 });
 $('sample-button').addEventListener('click', () => {
-  ++loadRevision;
-  for (const side of ['before', 'after']) { files[side] = null; parsed[side] = null; $(side + '-file').value = ''; $(side + '-file-label').textContent = 'Choose a CSV file'; }
-  $('compare').disabled = true; $('key-select').disabled = true; $('value-select').disabled = true;
-  report = initial.example; isSample = true; filter = 'changes'; page = 0; $('search').value = ''; setError(); $('file-status').textContent = ''; render();
+  resetDraft();
+  report = initial.example;
+  isSample = true;
+  resetView();
+  renderReport();
+  if ($('comparison-dialog').open) $('comparison-dialog').close();
+  focusReport();
+  showToast('Example report loaded.');
 });
+for (const status of ['added', 'removed', 'changed']) $('contrib-' + status).addEventListener('click', () => selectFilter(status, true));
 $('search').addEventListener('input', () => { page = 0; renderRows(); });
-$('prev-page').addEventListener('click', () => { page--; renderRows(); });
-$('next-page').addEventListener('click', () => { page++; renderRows(); });
+$('clear-search').addEventListener('click', () => { $('search').value = ''; page = 0; renderRows(); $('search').focus(); });
+$('row-sort').addEventListener('change', () => { sort = $('row-sort').value; page = 0; renderRows(); });
+$('reset-filters').addEventListener('click', () => {
+  resetView(); filter = 'all'; renderRows(); filterButtons.get('all').button.focus();
+});
+$('prev-page').addEventListener('click', () => { page -= 1; renderRows(); });
+$('next-page').addEventListener('click', () => { page += 1; renderRows(); });
 $('close-dialog').addEventListener('click', () => $('row-dialog').close());
+$('row-dialog').addEventListener('close', () => clearDetails());
 
 function download(content, name, type) {
   const url = URL.createObjectURL(new Blob([content], { type }));
-  const a = element('a'); a.href = url; a.download = name;
-  document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 1000);
+  const link = element('a');
+  link.href = url; link.download = name;
+  document.body.append(link); link.click(); link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
-function encodeState(value) { return JSON.stringify(value).replace(/[<>&\u2028\u2029]/g, c => `\\u${c.charCodeAt(0).toString(16).padStart(4, '0')}`); }
-$('export-json').addEventListener('click', () => download(JSON.stringify(report, null, 2), 'rowglass-report.json', 'application/json'));
-$('export-html').addEventListener('click', () => {
+function encodeState(value) { return JSON.stringify(value).replace(/[<>&\u2028\u2029]/g, character => `\\u${character.charCodeAt(0).toString(16).padStart(4, '0')}`); }
+function cleanExport() {
   const copy = document.documentElement.cloneNode(true);
-  copy.querySelector('#rowglass-data').textContent = encodeState({ report, sample: isSample, example: initial.example });
-  copy.querySelector('#row-dialog').removeAttribute('open');
-  copy.querySelector('#detail-key').textContent = '';
-  copy.querySelector('#detail-values').replaceChildren();
-  copy.querySelector('#detail-note').textContent = '';
-  // File selections cannot be restored. Reset that workspace while keeping the report.
-  for (const side of ['before', 'after']) copy.querySelector('#' + side + '-file-label').textContent = 'Choose a CSV file';
-  for (const id of ['key-select', 'value-select']) {
-    const select = copy.querySelector('#' + id); select.replaceChildren(element('option', 'Choose files first')); select.disabled = true;
+  const get = id => copy.querySelector('#' + id);
+  get('rowglass-data').textContent = encodeState({ report, sample: isSample, example: initial.example });
+  for (const dialog of copy.querySelectorAll('dialog')) dialog.removeAttribute('open');
+  for (const side of sides) {
+    get(side + '-file').value = '';
+    get(side + '-file').removeAttribute('value');
+    get(side + '-file').removeAttribute('aria-invalid');
+    get(side + '-file-label').textContent = 'Choose a CSV file';
+    get(side + '-file-meta').textContent = 'CSV or TSV, up to 20 MiB';
+    get(side + '-drop').classList.remove('is-loaded', 'is-dragging', 'has-error');
+    get(side + '-drop').setAttribute('aria-busy', 'false');
   }
-  copy.querySelector('#compare').disabled = true;
-  copy.querySelector('#error').hidden = true; copy.querySelector('#error').textContent = '';
-  copy.querySelector('#file-status').textContent = '';
-  copy.querySelector('#search').removeAttribute('value');
-  download('<!doctype html>\n' + copy.outerHTML, 'rowglass-report.html', 'text/html');
+  for (const id of ['key-select', 'value-select']) {
+    const option = element('option', 'Choose files first'); option.value = '';
+    get(id).replaceChildren(option); get(id).disabled = true;
+  }
+  for (const [id, value] of [['delimiter', ','], ['row-sort', 'impact']]) {
+    for (const option of get(id).options) {
+      option.selected = option.value === value;
+      if (option.selected) option.setAttribute('selected', ''); else option.removeAttribute('selected');
+    }
+  }
+  get('mapping-fields').hidden = true;
+  for (const id of ['key-preview', 'value-preview']) get(id).removeAttribute('title');
+  get('comparison-form').setAttribute('aria-busy', 'false');
+  get('compare').disabled = true;
+  get('swap-files').disabled = true;
+  get('draft-notice').hidden = true;
+  get('export-html').disabled = false;
+  get('export-json').disabled = false;
+  get('export-scope').textContent = `Includes all ${report.rows.length.toLocaleString()} rows, even when filtered.`;
+  get('search').value = '';
+  get('search').removeAttribute('value');
+  get('clear-search').hidden = true;
+  get('error').hidden = true;
+  get('toast').hidden = true;
+  get('toast').classList.remove('is-visible');
+  get('calculation-details').removeAttribute('open');
+  // Remove every dynamic editor/detail value, including unselected source cells.
+  // Clear rendered report blocks too; the saved state reconstructs them on open.
+  for (const id of [
+    'key-preview', 'value-preview', 'error', 'file-status', 'detail-key', 'detail-status', 'detail-values', 'detail-note', 'toast',
+    'report-kind', 'report-title', 'summary-description', 'before-name', 'after-name', 'report-source',
+    'total-before', 'total-after', 'total-delta', 'count-before', 'count-after', 'percent-change', 'metric-label', 'key-summary', 'row-change-count',
+    'added-total', 'added-count', 'removed-total', 'removed-count', 'changed-total', 'changed-count',
+    'waterfall', 'equation', 'drivers', 'schema-note', 'filters', 'rows', 'key-heading', 'row-total', 'scope-note', 'page-note',
+  ]) get(id).replaceChildren();
+  get('detail-status').classList.remove('added', 'removed', 'changed', 'unchanged');
+  get('detail-status').classList.add('status-pill');
+  return '<!doctype html>\n' + copy.outerHTML;
+}
+function canExport() {
+  if (!draftDirty) return true;
+  showToast('Apply or discard the draft before saving this report.');
+  return false;
+}
+$('export-json').addEventListener('click', () => {
+  if (!canExport()) return;
+  download(JSON.stringify(report, null, 2), 'rowglass-report.json', 'application/json');
+  showToast(`JSON download started. Includes all ${report.rows.length.toLocaleString()} rows.`);
 });
-render();
+$('export-html').addEventListener('click', () => {
+  if (!canExport()) return;
+  download(cleanExport(), 'rowglass-report.html', 'text/html');
+  showToast(`HTML download started. Includes all ${report.rows.length.toLocaleString()} rows.`);
+});
+initializeFilters();
+resetDraft();
+resetView();
+renderReport();
