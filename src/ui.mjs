@@ -9,6 +9,8 @@ let page = 0;
 let loadRevision = 0;
 let loading = false;
 let draftDirty = false;
+let draftMapping = { keys: [], value: '' };
+const exportIds = ['export-html', 'export-json', 'export-csv', 'export-markdown'];
 let toastTimer;
 const pageSize = 40;
 const sides = ['before', 'after'];
@@ -38,7 +40,9 @@ function display(value, signed = false) {
 function units(value) { return BigInt(value.replace('.', '')); }
 function absolute(value) { const n = typeof value === 'bigint' ? value : units(value); return n < 0n ? -n : n; }
 function direction(value) { const n = units(value); return n < 0n ? 'negative' : n > 0n ? 'positive' : ''; }
-function keyLabel(row) { return row.key.length === 1 ? row.key[0] : JSON.stringify(row.key); }
+function keyLabel(row) { return row.key.join(' / '); }
+function reportNoun() { return report.aggregation === 'sum' ? 'group' : 'row'; }
+function reportCount(count) { return countLabel(count, reportNoun()); }
 function countLabel(count, noun = 'row') { return `${count.toLocaleString()} ${noun}${count === 1 ? '' : 's'}`; }
 function setDirection(node, value) {
   node.classList.remove('positive', 'negative');
@@ -73,15 +77,14 @@ function showToast(message) {
 function setDirty(value) {
   draftDirty = value;
   $('draft-notice').hidden = !value;
-  $('export-html').disabled = value;
-  $('export-json').disabled = value;
-  $('export-scope').textContent = `Includes all ${report.rows.length.toLocaleString()} rows, even when filtered.`;
+  for (const id of exportIds) $(id).disabled = value;
+  $('export-scope').textContent = `Includes all ${reportCount(report.rows.length)}, even when filtered.`;
 }
 function setBusy(value) {
   loading = value;
   $('comparison-form').setAttribute('aria-busy', String(value));
   for (const side of sides) $(side + '-drop').setAttribute('aria-busy', String(value && !!files[side]));
-  $('compare').disabled = value || !parsed.before || !parsed.after || $('key-select').disabled;
+  $('compare').disabled = value || !parsed.before || !parsed.after || $('key-select').disabled || !$('key-select').value || !$('value-select').value;
   $('swap-files').disabled = !files.before && !files.after;
 }
 function draftHint(prefix) {
@@ -145,6 +148,7 @@ function updateFilters() {
     all: report.rows.length,
   };
   for (const [value, { button, count }] of filterButtons) {
+    button.firstElementChild.textContent = value === 'all' ? `All ${reportNoun()}s` : filterNames[value];
     count.textContent = counts[value].toLocaleString();
     button.classList.toggle('active', filter === value);
     button.setAttribute('aria-pressed', String(filter === value));
@@ -182,7 +186,7 @@ function renderRows() {
     const keyCell = tableCell(report.keys.join(' + '), 'key-heading');
     const button = element('button', rowFacts.get(row).key, 'key-button');
     button.type = 'button';
-    button.setAttribute('aria-label', `Inspect row ${rowFacts.get(row).key}`);
+    button.setAttribute('aria-label', `Inspect ${reportNoun()} ${rowFacts.get(row).key}`);
     button.addEventListener('click', () => showRow(row));
     keyCell.append(button);
     const statusCell = tableCell('Status', 'status-heading');
@@ -198,12 +202,12 @@ function renderRows() {
   $('rows').replaceChildren(fragment);
   $('empty-state').hidden = selected.length !== 0;
   const noChanges = filter === 'changes' && !$('search').value && report.counts.added + report.counts.removed + report.counts.changed === 0;
-  $('empty-title').textContent = noChanges ? 'No row changes' : 'No matching rows';
-  $('empty-description').textContent = noChanges ? 'The selected values match. Choose All rows to inspect them.' : 'Try a different search or reset the filters.';
+  $('empty-title').textContent = noChanges ? `No ${reportNoun()} changes` : 'No matching rows';
+  $('empty-description').textContent = noChanges ? `The selected values match. Choose All ${reportNoun()}s to inspect them.` : 'Try a different search or reset the filters.';
   $('clear-search').hidden = $('search').value.length === 0;
   const first = selected.length ? page * pageSize + 1 : 0;
   const last = Math.min((page + 1) * pageSize, selected.length);
-  $('page-note').textContent = `${first.toLocaleString()}–${last.toLocaleString()} of ${countLabel(selected.length)}; ${sortNames[sort]}`;
+  $('page-note').textContent = `${first.toLocaleString()}–${last.toLocaleString()} of ${reportCount(selected.length)}; ${sortNames[sort]}`;
   $('prev-page').disabled = page === 0;
   $('next-page').disabled = page >= pageCount - 1;
 }
@@ -220,7 +224,7 @@ function renderDrivers() {
     if (!row) continue;
     const button = element('button', undefined, `driver ${direction(row.delta)}`);
     button.type = 'button';
-    button.setAttribute('aria-label', `${label}: ${keyLabel(row)}, ${display(row.delta, true)}. Inspect row.`);
+    button.setAttribute('aria-label', `${label}: ${keyLabel(row)}, ${display(row.delta, true)}. Inspect ${reportNoun()}.`);
     button.append(
       element('span', label, 'driver-label'),
       element('strong', keyLabel(row), 'driver-key'),
@@ -230,34 +234,50 @@ function renderDrivers() {
     button.addEventListener('click', () => showRow(row));
     $('drivers').append(button);
   }
-  if (!increase && !decrease) $('drivers').append(element('p', 'No rows have a nonzero contribution to the total.', 'aside-note'));
+  if (!increase && !decrease) $('drivers').append(element('p', `No ${reportNoun()}s have a nonzero contribution to the total.`, 'aside-note'));
 }
 function renderReport() {
   clearDetails(true);
   prepareRows();
   const changedCount = report.counts.added + report.counts.removed + report.counts.changed;
+  const grouped = report.aggregation === 'sum';
+  $('rows-title').textContent = grouped ? 'Groups behind the change' : 'Rows behind the change';
+  $('breakdown-help').textContent = `Select a change type to see its ${reportNoun()}s.`;
+  $('drivers-hint').textContent = grouped ? 'Inspect a group and its source row counts' : 'Follow a row to its original values';
+  $('table-caption').textContent = `${grouped ? 'Grouped totals' : 'Individual row values'} and their contribution to the total change.`;
+  $('search-label').textContent = `Search ${reportNoun()} keys`;
+  $('sort-label').textContent = `Sort ${reportNoun()}s`;
+  $('filters').setAttribute('aria-label', `Filter ${reportNoun()}s by change type`);
+  $('close-dialog').setAttribute('aria-label', `Close ${reportNoun()} details`);
+  $('search').placeholder = `Search ${reportNoun()}s`;
+  $('export-csv').textContent = `Changed ${reportNoun()}s CSV`;
+  $('data-export-scope').textContent = `CSV: all ${reportCount(changedCount)} with changes. Markdown: top 10 changes. JSON: all ${reportCount(report.rows.length)}. Table filters do not affect exports.`;
+  $('aggregation-note').hidden = !grouped;
+  $('aggregation-note').textContent = grouped ? `Group & sum by ${report.keys.join(' + ')}. Every selected metric value is included. Changes describe group totals; offsetting changes within a group can be hidden. Inspect a group to see its source row counts.` : '';
   $('sample-banner').hidden = !isSample;
+  $('group-example-button').textContent = grouped ? 'Try customer totals' : 'Try line-item costs';
   $('report-kind').textContent = isSample ? 'Example report' : 'Your comparison';
   $('report-title').textContent = 'Your totals, explained.';
   $('summary-description').textContent = changedCount === 0
-    ? 'No row changes. The total is unchanged.'
+    ? `No ${reportNoun()}${grouped ? ' total' : ''} changes. The overall total is unchanged.`
     : units(report.totals.delta) === 0n
-      ? `${countLabel(changedCount)} changed, with no net change to the total.`
-      : `${countLabel(changedCount)} ${changedCount === 1 ? 'accounts' : 'account'} for this change in ${report.value}.`;
+      ? `${reportCount(changedCount)} changed, with no net change to the total.`
+      : `${reportCount(changedCount)} ${changedCount === 1 ? 'accounts' : 'account'} for this change in ${report.value}.`;
   $('before-name').textContent = report.beforeName;
   $('after-name').textContent = report.afterName;
   $('report-source').textContent = `${report.beforeName} → ${report.afterName}`;
   $('metric-label').textContent = report.value;
   $('key-summary').textContent = report.keys.join(' + ');
-  $('row-change-count').textContent = `${countLabel(changedCount)} changed`;
+  $('row-change-count').textContent = `${reportCount(changedCount)} changed`;
   $('total-before').textContent = display(report.totals.before);
   $('total-after').textContent = display(report.totals.after);
   $('total-delta').textContent = display(report.totals.delta, true);
   setDirection($('total-delta'), report.totals.delta);
-  $('count-before').textContent = countLabel(report.counts.before);
-  $('count-after').textContent = countLabel(report.counts.after);
+  for (const side of sides) $('count-' + side).textContent = grouped
+    ? `${countLabel(report.sourceCounts[side])} → ${countLabel(report.counts[side], 'group')}`
+    : countLabel(report.counts[side]);
   $('percent-change').textContent = signedPercent();
-  $('scope-note').textContent = `Matched by ${report.keys.join(' + ')}. “Value changed” refers only to ${report.value}.`;
+  $('scope-note').textContent = `${grouped ? 'Summed' : 'Matched'} by ${report.keys.join(' + ')}. “Value changed” refers only to ${grouped ? 'the group total of ' : ''}${report.value}.`;
   $('row-total').textContent = report.rows.length.toLocaleString();
   $('key-heading').textContent = report.keys.join(' + ');
   $('schema-note').textContent = report.schema.added.length || report.schema.removed.length
@@ -272,10 +292,12 @@ function renderReport() {
     const value = report.totals[status];
     $(status + '-total').textContent = display(value, true);
     setDirection($(status + '-total'), value);
-    $(status + '-count').textContent = countLabel(report.counts[status]);
+    $(status + '-count').textContent = reportCount(report.counts[status]);
+    $(status + '-label').textContent = status === 'changed' ? (grouped ? 'Changed group totals' : 'Changed values') : `${status === 'added' ? 'Added' : 'Removed'} ${reportNoun()}s`;
+    $(status + '-description').textContent = status === 'added' ? 'New in the after file' : status === 'removed' ? 'Only in the before file' : `Same ${reportNoun()}, different ${grouped ? 'total' : 'amount'}`;
     const width = maxContribution === 0n ? 0 : Number(absolute(value) * 10000n / maxContribution) / 100;
     $(status + '-bar').style.width = `${width}%`;
-    $('contrib-' + status).setAttribute('aria-label', `${labels[status]}: ${display(value, true)} across ${countLabel(report.counts[status])}. Show rows.`);
+    $('contrib-' + status).setAttribute('aria-label', `${labels[status]}: ${display(value, true)} across ${reportCount(report.counts[status])}. Show ${reportNoun()}s.`);
   }
   const term = value => units(value) === 0n ? `+${display(value)}` : display(value, true);
   $('equation').textContent = `${display(report.totals.before)} ${term(report.totals.added)} ${term(report.totals.removed)} ${term(report.totals.changed)} = ${display(report.totals.after)}`;
@@ -343,9 +365,17 @@ function clearDetails(close = false) {
 }
 function showRow(row) {
   clearDetails();
+  $('detail-kind').textContent = report.aggregation === 'sum' ? 'Group details' : 'Row details';
   $('detail-key').textContent = keyLabel(row);
   $('detail-status').textContent = labels[row.status];
   $('detail-status').classList.add(row.status);
+  if (report.keys.length > 1) {
+    for (const [index, key] of report.keys.entries()) {
+      const part = element('div', undefined, 'detail-item');
+      part.append(element('span', key), element('strong', row.key[index]));
+      $('detail-values').append(part);
+    }
+  }
   for (const [index, [label, value]] of [[report.beforeName, display(row.before)], [report.afterName, display(row.after)], ['Contribution to total change', display(row.delta, true)]].entries()) {
     const line = element('div', undefined, 'detail-item');
     const amount = element('strong', value);
@@ -353,16 +383,25 @@ function showRow(row) {
     line.append(element('span', label), amount);
     $('detail-values').append(line);
   }
+  if (report.aggregation === 'sum') {
+    const sourceCount = element('div', undefined, 'group-source-counts');
+    sourceCount.append(element('span', `${countLabel(row.beforeCount)} before`), element('span', `${countLabel(row.afterCount)} after`));
+    $('detail-values').prepend(sourceCount);
+  }
   $('detail-note').textContent = row.status === 'added'
     ? 'This key exists only in the after file. Its entire value contributes to the total change.'
     : row.status === 'removed'
       ? 'This key exists only in the before file. Its contribution is the negative of its original value.'
       : `After minus before for ${report.value}. Other fields are not compared. This describes the arithmetic, not the business cause.`;
+  if (report.aggregation === 'sum') $('detail-note').textContent = `Sum of ${report.value} for this group. Individual source rows are not retained in the report. Internal changes can offset, so an unchanged group total does not mean its source rows are unchanged.`;
   $('row-dialog').showModal();
 }
 
 function clearMapping() {
   $('mapping-fields').hidden = true;
+  $('extra-keys').replaceChildren();
+  $('extra-keys-details').open = false;
+  $('extra-key-summary').textContent = 'Add key columns';
   for (const id of ['key-select', 'value-select']) {
     const option = element('option', 'Choose files first');
     option.value = '';
@@ -396,29 +435,68 @@ function updatePreviews() {
   if (!parsed.before || !parsed.after) return;
   for (const [selectId, previewId] of [['key-select', 'key-preview'], ['value-select', 'value-preview']]) {
     const column = $(selectId).value;
-    const text = `Before: ${preview(parsed.before, column)}. After: ${preview(parsed.after, column)}.`;
+    const keys = selectedKeys();
+    const describe = dataset => selectId === 'key-select' && keys.length > 1
+      ? dataset.rows.slice(0, 2).map(row => JSON.stringify(keys.map(key => { const value = row[dataset.headers.indexOf(key)]; return value.length > 40 ? value.slice(0, 37) + '…' : value; }))).join(', ')
+      : preview(dataset, column);
+    const text = `Before: ${describe(parsed.before)}. After: ${describe(parsed.after)}.`;
     $(previewId).textContent = text;
     $(previewId).title = text;
   }
 }
-function setMapping(previousKey, previousValue) {
+function selectedKeys() {
+  return [$('key-select').value, ...Array.from($('extra-keys').querySelectorAll('input:checked'), input => input.value)].filter(Boolean);
+}
+function updateMode() {
+  const grouped = $('comparison-mode').value === 'groups';
+  $('key-label').textContent = grouped ? 'Group by' : 'Match rows by';
+  $('key-help').textContent = grouped ? 'Rows sharing this key are summed before comparing.' : 'Choose columns that together identify one row.';
+  $('mode-description').textContent = grouped
+    ? 'Add every value within each selected key. Compare group totals, not individual source rows.'
+    : 'Each selected key must identify one row. Duplicate keys stop the comparison.';
+}
+function updateExtraKeys(wanted = selectedKeys()) {
+  const primary = $('key-select').value, metric = $('value-select').value;
+  const common = parsed.before?.headers.filter(header => parsed.after?.headers.includes(header)) || [];
+  $('extra-keys').replaceChildren();
+  for (const name of common.filter(name => name !== primary && name !== metric)) {
+    const label = element('label', undefined, 'key-choice');
+    const input = element('input'); input.type = 'checkbox'; input.value = name;
+    input.checked = wanted.includes(name);
+    input.addEventListener('change', () => {
+      draftMapping = { keys: selectedKeys(), value: $('value-select').value };
+      setDirty(true); setError(); updateKeySummary(); updatePreviews();
+    });
+    label.append(input, element('span', name)); $('extra-keys').append(label);
+  }
+  $('extra-keys-details').hidden = !common.some(name => name !== primary && name !== metric);
+  updateKeySummary();
+}
+function updateKeySummary() {
+  const count = selectedKeys().length;
+  $('extra-key-summary').textContent = count > 1 ? `${count} key columns selected` : 'Add key columns';
+}
+function setMapping(previousKeys, previousValue) {
   const common = parsed.before.headers.filter(header => parsed.after.headers.includes(header));
-  if (common.length < 2) throw new Error('The files need at least two shared columns: one key and one numeric metric.');
+  if (common.length < 2) throw new Error('The files need at least two shared columns: keys and a numeric metric.');
   for (const id of ['key-select', 'value-select']) {
-    const select = $(id);
-    select.replaceChildren();
+    const select = $(id); select.replaceChildren();
+    const placeholder = element('option', 'Choose a column'); placeholder.value = ''; select.append(placeholder);
     for (const header of common) {
-      const option = element('option', header);
-      option.value = header;
-      select.append(option);
+      const option = element('option', header); option.value = header; select.append(option);
     }
     select.disabled = false;
   }
-  $('key-select').value = common.includes(previousKey) ? previousKey : common.find(header => /^(id|account|name|key)$/i.test(header)) || common[0];
-  $('value-select').value = common.includes(previousValue) && previousValue !== $('key-select').value ? previousValue
+  const missingKeys = previousKeys.some(key => !common.includes(key));
+  $('key-select').value = missingKeys ? '' : previousKeys[0] || common.find(header => /^(id|account|name|key)$/i.test(header)) || common[0];
+  $('value-select').value = previousValue ? (common.includes(previousValue) ? previousValue : '')
     : common.find(header => /^(amount|revenue|cost|total|value|usage)$/i.test(header) && header !== $('key-select').value) || common.find(header => header !== $('key-select').value);
+  updateExtraKeys(missingKeys ? [] : previousKeys);
   $('mapping-fields').hidden = false;
-  updatePreviews();
+  updateMode(); updatePreviews();
+  if (missingKeys || (previousValue && !common.includes(previousValue))) {
+    setError('Previously selected columns are missing. Choose the keys and numeric column again; no replacement has been assumed.');
+  }
 }
 function readError(error) {
   const raw = error instanceof Error ? error.message : String(error);
@@ -429,7 +507,7 @@ function readError(error) {
       : /decimal|integer digit|decimal place/.test(raw)
         ? 'Choose a numeric column without blanks, currency symbols, separators, or surrounding spaces.'
         : /duplicate key|blank key/.test(raw)
-          ? 'Choose a unique, nonblank row key. Use the CLI if the key spans multiple columns.'
+          ? 'Add key columns to identify rows uniquely, or explicitly choose Group & sum to compare totals. Blank keys must be fixed in the source.'
           : 'Check the selected columns, file contents, and delimiter, then try again.';
   return `${raw} ${hint} The current report is unchanged.`;
 }
@@ -446,7 +524,9 @@ async function loadFiles() {
   const revision = ++loadRevision;
   const snapshot = { ...files };
   const delimiter = $('delimiter').value === 'tab' ? '\t' : ',';
-  const previousKey = $('key-select').value, previousValue = $('value-select').value;
+  const activeKeys = selectedKeys();
+  if (activeKeys.length) draftMapping = { keys: activeKeys, value: $('value-select').value };
+  const previousKeys = [...draftMapping.keys], previousValue = draftMapping.value;
   parsed.before = null; parsed.after = null;
   clearMapping();
   setError();
@@ -478,7 +558,7 @@ async function loadFiles() {
     $('file-status').textContent = draftHint('Resolve the file error to continue.');
   } else if (parsed.before && parsed.after) {
     try {
-      setMapping(previousKey, previousValue);
+      setMapping(previousKeys, previousValue);
       $('file-status').textContent = draftHint('Files ready. Confirm the key and metric, then select “Compare files”.');
     } catch (error) {
       clearMapping();
@@ -501,6 +581,9 @@ function resetDraft() {
     $(side + '-drop').classList.remove('has-error');
   }
   $('delimiter').value = ',';
+  draftMapping = { keys: isSample ? [] : [...report.keys], value: isSample ? '' : report.value };
+  $('comparison-mode').value = !isSample && report.aggregation === 'sum' ? 'groups' : 'rows';
+  updateMode();
   clearMapping();
   updateFileLabels();
   setError();
@@ -546,11 +629,13 @@ for (const side of sides) {
 }
 $('delimiter').addEventListener('change', () => { setDirty(true); loadFiles(); });
 for (const id of ['key-select', 'value-select']) $(id).addEventListener('change', () => {
-  setDirty(true);
-  setError();
-  updatePreviews();
+  const wanted = selectedKeys();
+  updateExtraKeys(wanted);
+  draftMapping = { keys: selectedKeys(), value: $('value-select').value };
+  setDirty(true); setError(); updatePreviews(); setBusy(false);
   $('file-status').textContent = draftHint('Mapping updated. Select “Compare files” to apply it.');
 });
+$('comparison-mode').addEventListener('change', () => { setDirty(true); setError(); updateMode(); });
 $('swap-files').addEventListener('click', () => {
   [files.before, files.after] = [files.after, files.before];
   for (const side of sides) $(side + '-file').value = '';
@@ -563,12 +648,14 @@ $('comparison-form').addEventListener('submit', event => {
   try {
     setError();
     if (!parsed.before || !parsed.after || $('key-select').disabled) throw new Error('Choose two valid files before comparing.');
-    if ($('key-select').value === $('value-select').value) throw new Error('Choose different columns for the row key and numeric metric.');
+    if (!selectedKeys().length || !$('value-select').value) throw new Error('Choose the keys and numeric metric.');
+    if (selectedKeys().includes($('value-select').value)) throw new Error('Choose different columns for keys and the numeric metric.');
     const nextReport = reconcile(parsed.before, parsed.after, {
-      keys: [$('key-select').value], value: $('value-select').value,
+      keys: selectedKeys(), value: $('value-select').value, aggregate: $('comparison-mode').value === 'groups',
       beforeName: files.before.name, afterName: files.after.name,
     });
     report = nextReport;
+    draftMapping = { keys: [...report.keys], value: report.value };
     isSample = false;
     setDirty(false);
     resetView();
@@ -593,16 +680,18 @@ $('discard-draft').addEventListener('click', () => {
   resetDraft();
   showToast('Draft discarded. The current report is unchanged.');
 });
-$('sample-button').addEventListener('click', () => {
-  resetDraft();
-  report = initial.example;
+function loadExample(example) {
+  report = example;
   isSample = true;
+  resetDraft();
   resetView();
   renderReport();
   if ($('comparison-dialog').open) $('comparison-dialog').close();
   focusReport();
   showToast('Example report loaded.');
-});
+}
+$('sample-button').addEventListener('click', () => loadExample(initial.example));
+$('group-example-button').addEventListener('click', () => loadExample(report.aggregation === 'sum' ? initial.example : initial.groupExample));
 for (const status of ['added', 'removed', 'changed']) $('contrib-' + status).addEventListener('click', () => selectFilter(status, true));
 $('search').addEventListener('input', () => { page = 0; renderRows(); });
 $('clear-search').addEventListener('click', () => { $('search').value = ''; page = 0; renderRows(); $('search').focus(); });
@@ -626,7 +715,7 @@ function encodeState(value) { return JSON.stringify(value).replace(/[<>&\u2028\u
 function cleanExport() {
   const copy = document.documentElement.cloneNode(true);
   const get = id => copy.querySelector('#' + id);
-  get('rowglass-data').textContent = encodeState({ report, sample: isSample, example: initial.example });
+  get('rowglass-data').textContent = encodeState({ report, sample: isSample, example: initial.example, groupExample: initial.groupExample });
   for (const dialog of copy.querySelectorAll('dialog')) dialog.removeAttribute('open');
   for (const side of sides) {
     get(side + '-file').value = '';
@@ -641,21 +730,24 @@ function cleanExport() {
     const option = element('option', 'Choose files first'); option.value = '';
     get(id).replaceChildren(option); get(id).disabled = true;
   }
-  for (const [id, value] of [['delimiter', ','], ['row-sort', 'impact']]) {
+  for (const [id, value] of [['delimiter', ','], ['row-sort', 'impact'], ['comparison-mode', 'rows']]) {
     for (const option of get(id).options) {
       option.selected = option.value === value;
       if (option.selected) option.setAttribute('selected', ''); else option.removeAttribute('selected');
     }
   }
   get('mapping-fields').hidden = true;
+  get('extra-keys').replaceChildren();
+  get('extra-keys-details').removeAttribute('open');
+  get('extra-key-summary').textContent = 'Add key columns';
+  get('export-options').removeAttribute('open');
   for (const id of ['key-preview', 'value-preview']) get(id).removeAttribute('title');
   get('comparison-form').setAttribute('aria-busy', 'false');
   get('compare').disabled = true;
   get('swap-files').disabled = true;
   get('draft-notice').hidden = true;
-  get('export-html').disabled = false;
-  get('export-json').disabled = false;
-  get('export-scope').textContent = `Includes all ${report.rows.length.toLocaleString()} rows, even when filtered.`;
+  for (const id of exportIds) get(id).disabled = false;
+  get('export-scope').textContent = `Includes all ${reportCount(report.rows.length)}, even when filtered.`;
   get('search').value = '';
   get('search').removeAttribute('value');
   get('clear-search').hidden = true;
@@ -671,11 +763,22 @@ function cleanExport() {
     'total-before', 'total-after', 'total-delta', 'count-before', 'count-after', 'percent-change', 'metric-label', 'key-summary', 'row-change-count',
     'added-total', 'added-count', 'removed-total', 'removed-count', 'changed-total', 'changed-count',
     'waterfall', 'equation', 'drivers', 'schema-note', 'filters', 'rows', 'key-heading', 'row-total', 'scope-note', 'page-note',
+    'aggregation-note', 'rows-title', 'data-export-scope',
   ]) get(id).replaceChildren();
   get('detail-status').classList.remove('added', 'removed', 'changed', 'unchanged');
   get('detail-status').classList.add('status-pill');
   return '<!doctype html>\n' + copy.outerHTML;
 }
+function closeExports(restoreFocus = false) {
+  $('export-options').open = false;
+  if (restoreFocus) $('export-options').querySelector('summary').focus();
+}
+$('export-options').addEventListener('keydown', event => {
+  if (event.key === 'Escape') { event.preventDefault(); closeExports(true); }
+});
+document.addEventListener('click', event => {
+  if (!$('export-options').contains(event.target)) closeExports();
+});
 function canExport() {
   if (!draftDirty) return true;
   showToast('Apply or discard the draft before saving this report.');
@@ -683,13 +786,26 @@ function canExport() {
 }
 $('export-json').addEventListener('click', () => {
   if (!canExport()) return;
+  closeExports(true);
   download(JSON.stringify(report, null, 2), 'rowglass-report.json', 'application/json');
-  showToast(`JSON download started. Includes all ${report.rows.length.toLocaleString()} rows.`);
+  showToast(`JSON download started. Includes all ${reportCount(report.rows.length)}.`);
 });
 $('export-html').addEventListener('click', () => {
   if (!canExport()) return;
   download(cleanExport(), 'rowglass-report.html', 'text/html');
-  showToast(`HTML download started. Includes all ${report.rows.length.toLocaleString()} rows.`);
+  showToast(`HTML download started. Includes all ${reportCount(report.rows.length)}.`);
+});
+$('export-csv').addEventListener('click', () => {
+  if (!canExport()) return;
+  closeExports(true);
+  download(renderChangesCSV(report), 'rowglass-changes.csv', 'text/csv;charset=utf-8');
+  showToast(`CSV download started. All ${reportCount(report.counts.added + report.counts.removed + report.counts.changed)} with changes are included.`);
+});
+$('export-markdown').addEventListener('click', () => {
+  if (!canExport()) return;
+  closeExports(true);
+  download(renderMarkdown(report), 'rowglass-summary.md', 'text/markdown;charset=utf-8');
+  showToast('Markdown downloaded. Includes totals and the 10 largest changes.');
 });
 initializeFilters();
 resetDraft();

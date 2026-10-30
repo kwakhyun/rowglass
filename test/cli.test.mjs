@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import test from 'node:test';
+import { parseCSV } from '../src/engine.mjs';
 
 const cli = fileURLToPath(new URL('../bin/rowglass.mjs', import.meta.url));
 const beforeCSV = 'account,region,amount\nalpha,us,100.10\nbeta,eu,20.20\nremoved,eu,7.00\n';
@@ -140,6 +141,12 @@ test('strict argument validation never creates an output', async t => {
   const cases = [
     [...compare, '--unknown'],
     [...compare, '--json'],
+    [...compare, '--csv'],
+    [...compare, '--markdown'],
+    [...compare, '--group-by'],
+    [...compare, '--group-by', 'region'],
+    [...compare, '--csv', 'report.csv', '--csv', 'again.csv'],
+    [...compare, '--markdown', 'report.md', '--markdown', 'again.md'],
     [...compare, '--delimiter', 'semicolon'],
     [...compare, '--out', 'second.html'],
     [...compare, '--key', 'account'],
@@ -148,8 +155,15 @@ test('strict argument validation never creates an output', async t => {
     ['before.csv', 'after.csv', '--key', 'account', '--out', 'report.html'],
     ['before.csv', '--key', 'account', '--value', 'amount', '--out', 'report.html'],
     ['app', '--out', 'report.html', '--json', 'report.json'],
+    ['app', '--out', 'report.html', '--csv', 'report.csv'],
+    ['app', '--out', 'report.html', '--markdown', 'report.md'],
+    ['app', '--out', 'report.html', '--group-by', 'account'],
     ['app', '--out', 'report.html', '--fail-on-change'],
     ['demo', '--out', 'report.html', '--key', 'account'],
+    ['demo', '--out', 'report.html', '--group-by', 'account'],
+    ['before.csv', 'after.csv', '--group-by', 'account', '--group-by', 'account', '--value', 'amount', '--out', 'report.html'],
+    ['before.csv', 'after.csv', '--key', 'account', '--value', 'amount', '--csv', 'report.csv'],
+    ['before.csv', 'after.csv', '--key', 'account', '--value', 'amount', '--markdown', 'report.md'],
     ['app', '--out', 'report.html', 'unexpected.csv'],
     [],
   ];
@@ -158,6 +172,8 @@ test('strict argument validation never creates an output', async t => {
     assert.equal(result.status, 1, `Expected invalid arguments: ${JSON.stringify(args)}\n${result.stderr}`);
     assert.equal(existsSync(join(dir, 'report.html')), false);
     assert.equal(existsSync(join(dir, 'report.json')), false);
+    assert.equal(existsSync(join(dir, 'report.csv')), false);
+    assert.equal(existsSync(join(dir, 'report.md')), false);
   }
 });
 
@@ -222,4 +238,128 @@ test('help and version are available without input files', async t => {
   const version = run(['--version'], dir);
   assert.equal(version.status, 0, version.stderr);
   assert.equal(version.stdout.trim(), '0.1.0');
+});
+
+test('CSV and Markdown exports are written with the complete report before exit 2', async t => {
+  const dir = await fixture(t);
+  const result = run([...compare, '--json', 'report.json', '--csv', 'report.csv', '--markdown', 'report.md', '--fail-on-change'], dir);
+  assert.equal(result.status, 2, result.stderr);
+  assert.match(result.stdout, /CSV:/);
+  assert.match(result.stdout, /Markdown:/);
+  const csv = parseCSV(await readFile(join(dir, 'report.csv'), 'utf8'));
+  assert.equal(csv.rows.length, 3);
+  assert.ok(csv.rows.some(row => row.includes('alpha')));
+  assert.ok(csv.rows.some(row => row.includes('added')));
+  assert.ok(csv.rows.some(row => row.includes('removed')));
+  assert.ok(!csv.rows.some(row => row.includes('beta')));
+  const markdown = await readFile(join(dir, 'report.md'), 'utf8');
+  assert.match(markdown, /127\.30/);
+  assert.match(markdown, /135\.40/);
+  assert.match(markdown, /8\.10/);
+  assert.ok(existsSync(join(dir, 'report.html')));
+  assert.equal(JSON.parse(await readFile(join(dir, 'report.json'), 'utf8')).counts.unchanged, 1);
+});
+
+test('demo supports CSV and Markdown output from an unrelated directory', async t => {
+  const dir = await fixture(t);
+  const result = run(['demo', '--out', 'demo.html', '--csv', 'demo.csv', '--markdown', 'demo.md'], dir);
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(parseCSV(await readFile(join(dir, 'demo.csv'), 'utf8')).rows.length, 5);
+  assert.match(await readFile(join(dir, 'demo.md'), 'utf8'), /before\.csv/);
+});
+
+test('every pair of output formats rejects duplicate target paths before writing', async t => {
+  const dir = await fixture(t);
+  const names = ['out', 'json', 'csv', 'markdown'];
+  for (let first = 0; first < names.length; first += 1) {
+    for (let second = first + 1; second < names.length; second += 1) {
+      const args = compare.slice(0, -2);
+      names.forEach((name, index) => args.push('--' + name, index === first || index === second ? './same.output' : `${name}.output`));
+      const result = run([...args, '--force'], dir);
+      assert.equal(result.status, 1, `Expected ${names[first]}/${names[second]} to collide: ${result.stderr}`);
+      assert.match(result.stderr, /different output files/);
+      assert.equal(existsSync(join(dir, 'same.output')), false);
+      for (const name of names) assert.equal(existsSync(join(dir, `${name}.output`)), false);
+    }
+  }
+});
+
+test('CSV and Markdown cannot overwrite inputs, even with --force', async t => {
+  const dir = await fixture(t);
+  for (const option of ['--csv', '--markdown']) {
+    const result = run([...compare, option, 'before.csv', '--force'], dir);
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /input file/);
+    assert.equal(existsSync(join(dir, 'report.html')), false);
+  }
+  assert.equal(await readFile(join(dir, 'before.csv'), 'utf8'), beforeCSV);
+});
+
+test('existing supplemental outputs require --force and are checked before HTML is created', async t => {
+  const dir = await fixture(t);
+  await writeFile(join(dir, 'report.csv'), 'KEEP CSV');
+  await writeFile(join(dir, 'report.md'), 'KEEP MARKDOWN');
+  for (const [option, path] of [['--csv', 'report.csv'], ['--markdown', 'report.md']]) {
+    const result = run([...compare, option, path], dir);
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /already exists/);
+    assert.equal(existsSync(join(dir, 'report.html')), false);
+  }
+  const result = run([...compare, '--csv', 'report.csv', '--markdown', 'report.md', '--force'], dir);
+  assert.equal(result.status, 0, result.stderr);
+  assert.notEqual(await readFile(join(dir, 'report.csv'), 'utf8'), 'KEEP CSV');
+  assert.notEqual(await readFile(join(dir, 'report.md'), 'utf8'), 'KEEP MARKDOWN');
+});
+
+test('hard-linked output targets cannot be shared by two export formats', async t => {
+  const dir = await fixture(t);
+  await writeFile(join(dir, 'report.csv'), 'KEEP');
+  await link(join(dir, 'report.csv'), join(dir, 'report.md'));
+  const result = run([...compare, '--csv', 'report.csv', '--markdown', 'report.md', '--force'], dir);
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /different output files/);
+  assert.equal(existsSync(join(dir, 'report.html')), false);
+  assert.equal(await readFile(join(dir, 'report.csv'), 'utf8'), 'KEEP');
+});
+
+test('group-by sums duplicate rows with composite keys and reports source counts', async t => {
+  const dir = await fixture(t);
+  await writeFile(join(dir, 'before.csv'), 'account,region,amount\nalpha,us,0.10\nalpha,us,0.20\nalpha,eu,1.00\n');
+  await writeFile(join(dir, 'after.csv'), 'account,region,amount\nalpha,us,0.20\nalpha,us,0.30\nalpha,eu,0.50\nalpha,eu,0.50\n');
+  const result = run(['before.csv', 'after.csv', '--group-by', 'account', '--group-by', 'region', '--value', 'amount', '--out', 'report.html', '--json', 'report.json', '--csv', 'report.csv', '--markdown', 'report.md', '--fail-on-change'], dir);
+  assert.equal(result.status, 2, result.stderr);
+  assert.match(result.stdout, /Groups: 0 added, 0 removed, 1 changed, 1 unchanged/);
+  assert.match(result.stdout, /Source rows: 3 before, 4 after/);
+  const report = JSON.parse(await readFile(join(dir, 'report.json'), 'utf8'));
+  assert.equal(report.aggregation, 'sum');
+  assert.deepEqual(report.sourceCounts, { before: 3, after: 4 });
+  assert.equal(report.totals.delta, '0.20');
+  assert.equal(report.counts.before, 2);
+  assert.equal(report.counts.after, 2);
+  assert.equal(parseCSV(await readFile(join(dir, 'report.csv'), 'utf8')).rows.length, 1);
+});
+
+test('group-by ignores source row count changes when the group sum is unchanged', async t => {
+  const dir = await fixture(t);
+  await writeFile(join(dir, 'before.csv'), 'account,amount\nalpha,10.00\n');
+  await writeFile(join(dir, 'after.csv'), 'account,amount\nalpha,4.00\nalpha,6.00\n');
+  const strict = run(compare, dir);
+  assert.equal(strict.status, 1);
+  assert.match(strict.stderr, /duplicate key/);
+  const result = run(['before.csv', 'after.csv', '--group-by', 'account', '--value', 'amount', '--out', 'report.html', '--json', 'report.json', '--fail-on-change'], dir);
+  assert.equal(result.status, 0, result.stderr);
+  const report = JSON.parse(await readFile(join(dir, 'report.json'), 'utf8'));
+  assert.equal(report.counts.changed, 0);
+  assert.equal(report.counts.unchanged, 1);
+  assert.equal(report.rows[0].beforeCount, 1);
+  assert.equal(report.rows[0].afterCount, 2);
+});
+
+test('added and removed zero-sum groups still trigger --fail-on-change', async t => {
+  const dir = await fixture(t);
+  await writeFile(join(dir, 'before.csv'), 'account,amount\nremoved,10\nremoved,-10\n');
+  await writeFile(join(dir, 'after.csv'), 'account,amount\nadded,0\n');
+  const result = run(['before.csv', 'after.csv', '--group-by', 'account', '--value', 'amount', '--out', 'report.html', '--fail-on-change'], dir);
+  assert.equal(result.status, 2, result.stderr);
+  assert.match(result.stdout, /Groups: 1 added, 1 removed, 0 changed/);
 });

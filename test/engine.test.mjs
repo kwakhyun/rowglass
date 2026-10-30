@@ -162,3 +162,103 @@ test('input datasets and options are not mutated', () => {
   report.rows[0].key[0] = 'changed';
   assert.equal(JSON.stringify({ before, after, options }), snapshot);
 });
+
+test('explicit group sums reconcile billing lines and distinguish source rows from groups', () => {
+  const report = compare(
+    'account,service,amount,note\nA,api,0.10,first\nA,api,0.20,second\nA,storage,10.000,base\nA,storage,-2.50,credit\nB,api,-5.00,credit\nB,api,-1,credit\nZ,api,0.00,zero\nU,api,4,offset\nU,api,-4.000,offset',
+    'account,service,amount,note\nA,storage,3.25,new\nA,api,0.15,new\nA,api,0.30,new\nA,storage,4.25,new\nU,api,0,new\nN,api,-2,new\nN,api,-1,new\nNZ,api,0,new',
+    { keys: ['account', 'service'], aggregate: true },
+  );
+  assert.equal(report.aggregation, 'sum');
+  assert.equal(report.scale, 3);
+  assert.deepEqual(report.sourceCounts, { before: 9, after: 8 });
+  assert.deepEqual(report.counts, { before: 5, after: 5, added: 2, removed: 2, changed: 1, unchanged: 2 });
+  assert.deepEqual(report.totals, { before: '1.800', after: '4.950', delta: '3.150', added: '-3.000', removed: '6.000', changed: '0.150' });
+  assert.deepEqual(report.rows, [
+    { key: ['A', 'api'], before: '0.300', after: '0.450', delta: '0.150', status: 'changed', beforeCount: 2, afterCount: 2 },
+    { key: ['A', 'storage'], before: '7.500', after: '7.500', delta: '0.000', status: 'unchanged', beforeCount: 2, afterCount: 2 },
+    { key: ['B', 'api'], before: '-6.000', after: null, delta: '6.000', status: 'removed', beforeCount: 2, afterCount: 0 },
+    { key: ['Z', 'api'], before: '0.000', after: null, delta: '0.000', status: 'removed', beforeCount: 1, afterCount: 0 },
+    { key: ['U', 'api'], before: '0.000', after: '0.000', delta: '0.000', status: 'unchanged', beforeCount: 2, afterCount: 1 },
+    { key: ['N', 'api'], before: null, after: '-3.000', delta: '-3.000', status: 'added', beforeCount: 0, afterCount: 2 },
+    { key: ['NZ', 'api'], before: null, after: '0.000', delta: '0.000', status: 'added', beforeCount: 0, afterCount: 1 },
+  ]);
+  assert.deepEqual(JSON.parse(JSON.stringify(report)), report);
+});
+
+test('group sums may exceed the input digit limit without losing fractional precision', () => {
+  const large = '999999999999999999999999999999.000000000001';
+  const report = compare(
+    `account,amount\na,${large}\na,${large}`,
+    `account,amount\na,0.000000000001\na,${large}\na,${large}`,
+    { aggregate: true },
+  );
+  assert.equal(report.rows[0].before, '1999999999999999999999999999998.000000000002');
+  assert.equal(report.rows[0].after, '1999999999999999999999999999998.000000000003');
+  assert.equal(report.totals.delta, '0.000000000001');
+  assert.equal(report.totals.changed, '0.000000000001');
+  assert.equal(report.rows[0].beforeCount, 2);
+  assert.equal(report.rows[0].afterCount, 3);
+});
+
+test('group identity preserves composite boundaries and exact IDs', () => {
+  const report = compare(
+    'first,second,amount\na|b,c,1.00\na,b|c,2\na|b,c,3\n__proto__,constructor,4\n001,x,5\n1,x,6\n spaced ,x,7',
+    'first,second,amount\na,b|c,1.5\na|b,c,4\na,b|c,0.50\n__proto__,constructor,4\n001,x,5\n1,x,6\n spaced ,x,7',
+    { keys: ['first', 'second'], aggregate: true },
+  );
+  assert.deepEqual(report.rows.map(row => row.key), [['a|b', 'c'], ['a', 'b|c'], ['__proto__', 'constructor'], ['001', 'x'], ['1', 'x'], [' spaced ', 'x']]);
+  assert.deepEqual(report.counts, { before: 6, after: 6, added: 0, removed: 0, changed: 0, unchanged: 6 });
+  assert.equal(report.totals.before, '28.00');
+  assert.equal(report.totals.after, '28.00');
+  assert.equal(report.rows[0].beforeCount, 2);
+  assert.equal(report.rows[1].afterCount, 2);
+});
+
+test('aggregation validates every source value and key instead of dropping bad duplicate lines', () => {
+  const empty = csv('account,amount');
+  for (const value of ['', ' ', '1e3', '1,000', '=1+1', '1'.repeat(31), '0.0000000000001']) {
+    const invalid = { headers: ['account', 'amount'], rows: [['a', '1'], ['a', value]] };
+    assert.throws(() => reconcile(invalid, empty, { aggregate: true }), /Before CSV record 3/);
+    assert.throws(() => reconcile(empty, invalid, { aggregate: true }), /After CSV record 3/);
+  }
+  assert.throws(() => compare('account,service,amount\na,x,1\na, ,2', 'account,service,amount', { keys: ['account', 'service'], aggregate: true }), /blank key/);
+  assert.throws(() => compare('account,amount', 'account,total\na,1', { aggregate: true }), /missing column "amount"/);
+  for (const aggregate of ['sum', 'true', 1, 0, null, {}, []]) {
+    assert.throws(() => reconcile(empty, empty, { aggregate }), /aggregate option must be a boolean/);
+  }
+});
+
+test('aggregation is opt-in and default report shape remains compatible', () => {
+  const unique = csv('account,amount\na,1');
+  const implicit = reconcile(unique, unique);
+  assert.deepEqual(reconcile(unique, unique, { aggregate: false }), implicit);
+  assert.equal(Object.hasOwn(implicit, 'aggregation'), false);
+  assert.equal(Object.hasOwn(implicit, 'sourceCounts'), false);
+  assert.equal(Object.hasOwn(implicit.rows[0], 'beforeCount'), false);
+  assert.equal(Object.hasOwn(implicit.rows[0], 'afterCount'), false);
+  const duplicate = csv('account,amount\na,1\na,2');
+  assert.throws(() => reconcile(duplicate, unique), /duplicate key/);
+  assert.throws(() => reconcile(unique, duplicate, { aggregate: false }), /duplicate key/);
+});
+
+test('empty and one-sided group reports retain counts, zero presence, and source immutability', () => {
+  const empty = csv('account,amount');
+  const before = csv('account,amount\na,1.000000000001\na,-1.000000000001');
+  const options = { keys: ['account'], value: 'amount', aggregate: true };
+  const snapshot = JSON.stringify({ before, empty, options });
+  const report = reconcile(before, empty, options);
+  assert.deepEqual(report.sourceCounts, { before: 2, after: 0 });
+  assert.deepEqual(report.counts, { before: 1, after: 0, added: 0, removed: 1, changed: 0, unchanged: 0 });
+  assert.deepEqual(report.rows[0], { key: ['a'], before: '0.000000000000', after: null, delta: '0.000000000000', status: 'removed', beforeCount: 2, afterCount: 0 });
+  const added = reconcile(empty, before, options);
+  assert.equal(added.rows[0].status, 'added');
+  assert.equal(added.rows[0].afterCount, 2);
+  const noGroups = reconcile(empty, empty, options);
+  assert.deepEqual(noGroups.sourceCounts, { before: 0, after: 0 });
+  assert.deepEqual(noGroups.counts, { before: 0, after: 0, added: 0, removed: 0, changed: 0, unchanged: 0 });
+  assert.deepEqual(noGroups.totals, { before: '0', after: '0', delta: '0', added: '0', removed: '0', changed: '0' });
+  report.keys.push('extra');
+  report.rows[0].key[0] = 'changed';
+  assert.equal(JSON.stringify({ before, empty, options }), snapshot);
+});

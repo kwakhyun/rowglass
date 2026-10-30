@@ -1,0 +1,7 @@
+account,service,cost
+Atlas,Compute,120.10
+Atlas,Compute,30.20
+Atlas,Storage,20.00
+Beacon,Compute,80.00
+Beacon,Support,-5.00
+Cedar,Compute,40.00

@@ -7,6 +7,7 @@ import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseCSV, reconcile } from '../src/engine.mjs';
 import { renderApp } from '../src/render.mjs';
+import { renderChangesCSV, renderMarkdown } from '../src/exports.mjs';
 
 const VERSION = '0.1.0';
 const MAX_INPUT_BYTES = 20 * 1024 * 1024;
@@ -19,16 +20,22 @@ Usage:
 
 Options:
   --key COLUMN         Row identity column; repeat for a composite key.
+  --group-by COLUMN    Sum rows by this column; repeat for several columns.
+                       Use instead of --key for nonunique source keys.
   --value COLUMN       Numeric column to reconcile.
   --out PATH           Write a standalone HTML report (required).
   --json PATH          Also write the reconciliation as JSON.
+  --csv PATH           Also write every changed row or group as CSV.
+  --markdown PATH      Also write a Markdown summary.
   --delimiter FORMAT   comma (default) or tab.
-  --fail-on-change     Exit 2 if rows were added, removed, or changed.
+  --fail-on-change     Exit 2 for added, removed, or changed rows/groups.
   --force              Replace existing output files.
   --help, -h           Show this help.
   --version, -v        Show the version.
 
 app creates a standalone browser app. demo uses the bundled example CSVs.
+--key and --group-by are mutually exclusive. Group mode compares sums;
+source row count changes alone do not trigger --fail-on-change.
 Files stay local. Outputs never replace input files, even with --force.
 Exit codes: 0 success, 1 invalid input or failure, 2 changes with --fail-on-change.
 `;
@@ -42,9 +49,10 @@ function parseArguments(args) {
   if (args.length === 1 && ['--version', '-v'].includes(args[0])) return { command: 'version' };
   if (!args.length) fail('No command or CSV files supplied. Run rowglass --help for usage.');
 
-  const options = { command: 'compare', keys: [], delimiter: ',', force: false, failOnChange: false };
+  const options = { command: 'compare', keys: [], groupBy: [], delimiter: ',', force: false, failOnChange: false };
   const values = new Map([
-    ['--key', 'keys'], ['--value', 'value'], ['--out', 'out'], ['--json', 'json'], ['--delimiter', 'delimiter'],
+    ['--key', 'keys'], ['--group-by', 'groupBy'], ['--value', 'value'], ['--out', 'out'],
+    ['--json', 'json'], ['--csv', 'csv'], ['--markdown', 'markdown'], ['--delimiter', 'delimiter'],
   ]);
   const switches = new Map([['--force', 'force'], ['--fail-on-change', 'failOnChange']]);
   const seen = new Set();
@@ -54,7 +62,7 @@ function parseArguments(args) {
   for (let i = 0; i < remaining.length; i += 1) {
     const arg = remaining[i];
     if (values.has(arg) || switches.has(arg)) {
-      if (seen.has(arg) && arg !== '--key') fail(`Option ${arg} was supplied more than once.`);
+      if (seen.has(arg) && !['--key', '--group-by'].includes(arg)) fail(`Option ${arg} was supplied more than once.`);
       seen.add(arg);
       if (switches.has(arg)) {
         options[switches.get(arg)] = true;
@@ -63,6 +71,7 @@ function parseArguments(args) {
       const value = remaining[++i];
       if (value === undefined || value === '' || value.startsWith('--')) fail(`Option ${arg} needs a value.`);
       if (arg === '--key') options.keys.push(value);
+      else if (arg === '--group-by') options.groupBy.push(value);
       else if (arg === '--delimiter') {
         if (!['comma', 'tab'].includes(value)) fail('--delimiter must be comma or tab.');
         options.delimiter = value === 'tab' ? '\t' : ',';
@@ -76,17 +85,19 @@ function parseArguments(args) {
   if (!options.out) fail('--out is required.');
   if (options.command === 'compare') {
     if (positional.length !== 2) fail('Supply exactly two input CSV paths.');
-    if (!options.keys.length) fail('At least one --key column is required.');
+    if (!options.keys.length && !options.groupBy.length) fail('At least one --key or --group-by column is required.');
+    if (options.keys.length && options.groupBy.length) fail('--key and --group-by cannot be used together.');
     if (!options.value) fail('--value is required.');
     if (new Set(options.keys).size !== options.keys.length) fail('Each --key column must be unique.');
+    if (new Set(options.groupBy).size !== options.groupBy.length) fail('Each --group-by column must be unique.');
     options.inputs = positional;
   } else {
     if (positional.length) fail(`${options.command} does not accept input CSV paths.`);
-    for (const flag of ['--key', '--value', '--delimiter']) {
+    for (const flag of ['--key', '--group-by', '--value', '--delimiter']) {
       if (seen.has(flag)) fail(`${flag} is not supported with ${options.command}.`);
     }
     if (options.command === 'app') {
-      for (const flag of ['--json', '--fail-on-change']) {
+      for (const flag of ['--json', '--csv', '--markdown', '--fail-on-change']) {
         if (seen.has(flag)) fail(`${flag} is not supported with app.`);
       }
     } else {
@@ -203,29 +214,39 @@ async function main() {
   if (options.command === 'version') return process.stdout.write(`${VERSION}\n`);
 
   const inputs = options.inputs ? await Promise.all(options.inputs.map(readInput)) : [];
-  const output = await checkOutput(options.out, inputs, options.force);
-  const jsonOutput = options.json ? await checkOutput(options.json, inputs, options.force) : null;
-  if (jsonOutput && output.canonical === jsonOutput.canonical) fail('--out and --json must use different paths.');
+  const outputs = [];
+  for (const [option, label] of [['out', 'HTML'], ['json', 'JSON'], ['csv', 'CSV'], ['markdown', 'Markdown']]) {
+    if (!options[option]) continue;
+    const output = { ...await checkOutput(options[option], inputs, options.force), option, label };
+    const duplicate = outputs.find(existing => existing.canonical === output.canonical || sameFile(existing.stat, output.stat));
+    if (duplicate) fail(`--${duplicate.option} and --${option} must use different output files.`);
+    outputs.push(output);
+  }
 
   const report = inputs.length ? reconcile(
     parseCSV(inputs[0].text, { delimiter: options.delimiter }),
     parseCSV(inputs[1].text, { delimiter: options.delimiter }),
     {
-      keys: options.keys,
+      keys: options.groupBy.length ? options.groupBy : options.keys,
+      aggregate: options.groupBy.length > 0,
       value: options.value,
       beforeName: basename(inputs[0].path),
       afterName: basename(inputs[1].path),
     },
   ) : null;
-  const outputs = [{ ...output, content: await renderApp(report, { sample: options.command === 'demo' }) }];
-  if (jsonOutput) outputs.push({ ...jsonOutput, content: `${JSON.stringify(report, null, 2)}\n` });
+  for (const output of outputs) {
+    if (output.option === 'out') output.content = await renderApp(report, { sample: options.command === 'demo' });
+    else if (output.option === 'json') output.content = `${JSON.stringify(report, null, 2)}\n`;
+    else if (output.option === 'csv') output.content = renderChangesCSV(report);
+    else if (output.option === 'markdown') output.content = renderMarkdown(report);
+  }
   await writeOutputs(outputs, inputs, options.force);
 
-  process.stdout.write(`HTML: ${output.path}\n`);
-  if (jsonOutput) process.stdout.write(`JSON: ${jsonOutput.path}\n`);
+  for (const output of outputs) process.stdout.write(`${output.label}: ${output.path}\n`);
   if (report) {
     const { added, removed, changed, unchanged } = report.counts;
-    process.stdout.write(`Rows: ${added} added, ${removed} removed, ${changed} changed, ${unchanged} unchanged.\n`);
+    process.stdout.write(`${report.aggregation === 'sum' ? 'Groups' : 'Rows'}: ${added} added, ${removed} removed, ${changed} changed, ${unchanged} unchanged.\n`);
+    if (report.aggregation === 'sum') process.stdout.write(`Source rows: ${report.sourceCounts.before} before, ${report.sourceCounts.after} after.\n`);
     if (options.failOnChange && added + removed + changed > 0) process.exitCode = 2;
   } else {
     process.stdout.write('Open the HTML file in a browser to compare CSV files locally.\n');

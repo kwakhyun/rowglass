@@ -1,0 +1,6 @@
+account,service,cost
+Atlas,Compute,170.30
+Atlas,Compute,10.00
+Atlas,Storage,20.00
+Beacon,Compute,60.00
+Delta,Compute,50.00

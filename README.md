@@ -2,7 +2,7 @@
 
 **Explain a changed CSV total, down to the rows.**
 
-Choose two CSVs, a row key, and a numeric column. Rowglass shows how added rows, removed rows, and changed values account for the difference. Save the result as one interactive HTML file that works offline.
+Reconcile revenue, cost, or usage totals across two CSV exports. Match unique records with one or more keys, or explicitly sum repeated line items by customer, account, or service. See what added, removed, and changed values contribute, then save an interactive offline HTML report.
 
 [Try the live demo](https://kwakhyun.github.io/rowglass/) · [한국어 안내](README.ko.md) · [Example report](examples/report.html) · [Contributing](CONTRIBUTING.md)
 
@@ -15,6 +15,14 @@ The bundled synthetic example goes from **128,000 to 141,400**:
 ```
 
 Atlas increased by 8,000 while Cedar decreased by 7,600. Their combined contribution is just 400; the report lets you inspect both rows.
+
+## When it fits
+
+- Compare monthly customer totals and find the largest increases and decreases.
+- Sum repeated cost or usage records by account and service before comparing periods.
+- Check a numeric snapshot in CI and keep a report when the check fails.
+
+This is a focused reconciliation utility. It compares one metric with the same meaning and unit in both files; it does not explain business causes or replace a general spreadsheet diff.
 
 ## Try it
 
@@ -37,11 +45,11 @@ open dist/index.html
 
 There are no npm dependencies to install. The package has not been published to npm; use the checkout commands below.
 
-Select **Compare files**, choose the before and after CSVs, and confirm **Match rows by** and **Column to total**. For TSV, expand **File format and limits** and change the separator. Select **Compare files** again to see the result.
+Select **Compare files**, choose the before and after CSVs, and confirm the keys and **Column to total**. Expand **Add key columns** for a composite key. **Match unique rows** rejects duplicates; choose **Group & sum** explicitly when repeated line items should be summed. For TSV, expand **File format and limits** and change the separator. Select **Compare files** again to see the result. The **Try line-item costs** example demonstrates grouping without uploading a file.
 
 The total change comes first, followed by added rows, removed rows, and changed values. Select a group to filter the rows, search by key, sort by impact, or inspect the original values. On mobile, each row shows its difference and before/after values together.
 
-**Download report** saves an interactive HTML copy; **Download JSON** saves the data. Both include every row, even when the table is filtered. If you edit files or columns, apply or discard those changes before downloading. Printing includes the current table page, with its displayed range.
+**Download report** saves interactive HTML. **Export data** offers full JSON, every changed row as CSV, and a Markdown summary with the ten largest changes. Table filters never restrict exports. If you edit files or columns, apply or discard those changes before downloading. Printing includes the current table page, with its displayed range.
 
 ## Use the CLI
 
@@ -54,6 +62,14 @@ Repeat `--key` for a composite key, and use `--delimiter tab` for TSV:
 ```sh
 node bin/rowglass.mjs before.tsv after.tsv --key account --key region --value amount --delimiter tab --out report.html
 ```
+
+Sum repeated line items by account and service, with outputs for spreadsheets and CI:
+
+```sh
+node bin/rowglass.mjs examples/usage-before.csv examples/usage-after.csv --group-by account --group-by service --value cost --out costs.html --csv changes.csv --markdown summary.md --json costs.json
+```
+
+This synthetic example reconciles `285.30 + 50.00 − 35.00 + 10.00 = 310.30`. `--key` and `--group-by` are mutually exclusive. `--csv` and `--markdown` also work with unique-row comparisons.
 
 Generate a demo or a reusable browser app:
 
@@ -73,7 +89,9 @@ Add `--fail-on-change` for a script or CI job. Exit codes are:
 | `1` | Invalid arguments, invalid data, or an output error. |
 | `2` | `--fail-on-change` found added, removed, or numerically changed rows. The report is still written. |
 
-A zero-value row being added or removed also triggers exit `2`. Offsetting row changes trigger it even when the net total is unchanged. Row order, numeric formatting such as `1.0` versus `1.00`, and edits to other cell values do not.
+In group mode, statuses and exit codes refer to group sums. Internal changes that offset within one group, or changes only to its source row count, do not trigger exit `2`. Added or removed zero-sum groups do. See the [CI recipe](docs/ci.md) for preserving artifacts and a job summary when differences are found.
+
+A zero-value row being added or removed also triggers exit `2` in unique-row mode. Offsetting row changes trigger it even when the net total is unchanged. Row order, numeric formatting such as `1.0` versus `1.00`, and edits to other cell values do not.
 
 ## What the calculation means
 
@@ -83,15 +101,15 @@ For each matched key, the contribution is **after − before**. An added row con
 before total + added contribution + removed contribution + changed contribution = after total
 ```
 
-Totals and row values use exact decimal arithmetic backed by integers. Chart positions use approximate numbers, while the table and JSON preserve exact decimal strings. The report identifies arithmetic contributors; it does not infer business causes.
+Totals and row values use exact decimal arithmetic backed by integers. Chart positions use approximate numbers, while report values and exports preserve exact decimal strings. Spreadsheet programs may infer or round CSV numbers; import those columns as text when exact digits matter. The report identifies arithmetic contributors; it does not infer business causes.
 
 | Input | Supported behavior |
 | --- | --- |
 | Files | UTF-8 CSV or TSV with a header, up to 20 MiB and 100,000 data rows per file. |
 | CSV fields | Quoted delimiters, escaped quotes, multiline fields, LF/CRLF line endings, and a UTF-8 BOM. Empty physical lines are skipped. |
-| Keys | Unique, nonblank values matched exactly, including case and whitespace. Browser: one key. CLI and API: one or more keys. |
+| Keys | One or more nonblank columns, matched exactly including case and whitespace, in the browser, CLI, and API. Unique by default; explicitly grouped and summed in group mode. |
 | Metric | One decimal column, up to 30 integer digits and 12 decimal places per value. Negative values are supported. |
-| Validation | Duplicate or empty headers, malformed records, duplicate or blank keys, missing selected columns, and invalid numbers stop the comparison. |
+| Validation | Duplicate or empty headers, malformed records, duplicate keys in unique-row mode, blank keys, missing selected columns, and invalid numbers stop the comparison. |
 
 Numbers must look like `12`, `12.50`, or `-0.25`. Blanks, surrounding spaces, `+12`, `.5`, exponents, currency symbols, and thousands separators are rejected. No rounding, unit conversion, or currency conversion is performed; compare values with the same meaning and units.
 
@@ -101,7 +119,9 @@ Added or removed column names are recorded. Changes to nonmetric cells are outsi
 
 Rowglass runs locally without a server, uploads, network requests, or telemetry. Generated HTML contains its own code, styles, and report data.
 
-Saved reports include every selected key and metric value, including unchanged rows, plus filenames, column names, totals, and row statuses. Other cell values are excluded. Review the included data before sharing the file.
+HTML and JSON include all compared keys and values, including unchanged results, plus filenames, column names, totals, and statuses. Group mode retains group sums and source row counts, not individual source rows. CSV contains every changed result; Markdown contains a summary and up to ten changes. Other cell values and raw source files are excluded. Review the included data before sharing.
+
+CSV keys that could be interpreted as spreadsheet formulas are prefixed with an apostrophe. This deliberately alters those exported keys; JSON retains their original text.
 
 ## Use the engine
 
@@ -125,6 +145,8 @@ console.log(report.rows[0].status); // "changed"
 
 `parseCSV(text, { delimiter: '\t' })` parses TSV and returns `{ headers, rows }`. `reconcile()` returns decimal strings in `totals` and `rows`, numeric row `counts`, added and removed column names in `schema`, and the selected keys and metric. Missing before/after values are `null`. Both functions throw on invalid input.
 
+Pass `aggregate: true` to `reconcile()` to sum by `keys`. The result adds `aggregation: 'sum'` and `sourceCounts`; each row adds `beforeCount` and `afterCount`. Existing `counts` then count groups. Use `renderChangesCSV(report)` and `renderMarkdown(report)` from `src/exports.mjs` for the same text exports as the browser and CLI.
+
 ## Related projects
 
 | Project | Focus |
@@ -132,12 +154,15 @@ console.log(report.rows[0].status); // "changed"
 | [csv-diff](https://github.com/simonw/csv-diff) | Row and cell differences between CSV, TSV, or JSON files, available as a Python CLI and library. |
 | [daff](https://github.com/paulfitz/daff) | Tabular comparison, patching, merging, and rendered differences. |
 | [dataloupe](https://github.com/aurelio-nakamura/dataloupe) | Offline data exploration and key-based file differences in standalone HTML reports. |
-| Rowglass | Reconcile one changed total across two CSV snapshots and inspect each row's contribution. |
+| [CSV Compare](https://csvtodashboard.com/csv-compare) | Browser comparison with total and category drivers and portable report exports. |
+| Rowglass | A small MIT-licensed JavaScript tool for exact decimal reconciliation, explicit grouping, and offline reports. |
+
+Offline HTML, keyed comparison, and total reconciliation already exist elsewhere. Rowglass focuses on a small, inspectable engine and one clear workflow; no performance or precision advantage over these tools has been measured.
 
 ## Development
 
-Run `npm test` for engine and CLI tests, and `npm run build` after changing the browser code. See [CONTRIBUTING.md](CONTRIBUTING.md) for the file map and browser checks.
+Run `npm test` for engine, export, renderer, and CLI tests, `npm run check:package` to install and run a local tarball offline, and `npm run build` after changing browser code. See [CONTRIBUTING.md](CONTRIBUTING.md) for the file map and browser checks.
 
-The initial test suite was run locally on macOS with Node.js 22. The included GitHub Actions workflow defines Node.js 22/24 jobs on Linux, macOS, and Windows; those hosted jobs have not yet been run.
+The GitHub Actions matrix has passed on Linux, macOS, and Windows with Node.js 22 and 24. See [verification details](docs/verification.md) for exact runs and browser checks. There are no measured adoption or performance claims.
 
 Licensed under [MIT](LICENSE). Lucide icons have separate [third-party notices](docs/third-party-notices.md), also embedded in generated HTML.

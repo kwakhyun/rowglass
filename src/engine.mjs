@@ -147,19 +147,22 @@ export function formatDecimal(coefficient, scale = 0) {
 
 /**
  * Reconcile one exact decimal metric using one or more string identity columns.
- * Nonmetric changes are intentionally ignored. Missing/duplicate/blank keys and
- * invalid numbers fail the entire operation rather than silently dropping rows.
+ * Nonmetric changes are intentionally ignored. Missing/blank keys and invalid
+ * numbers fail the entire operation rather than silently dropping rows. Duplicate
+ * keys also fail unless aggregate is true, which sums each key's input values.
+ * Group statuses depend on sums, not changes to their source rows or row counts.
  * All returned numbers use the largest input decimal scale. Removed totals are
  * signed contributions: removing a negative value contributes a positive delta.
  * Output order follows before rows, then newly added rows in their after order.
  */
 export function reconcile(beforeDataset, afterDataset, options = {}) {
-  const { keys = ['account'], value = 'amount', beforeName = 'before.csv', afterName = 'after.csv' } = options;
+  const { keys = ['account'], value = 'amount', beforeName = 'before.csv', afterName = 'after.csv', aggregate = false } = options;
   if (!Array.isArray(keys) || keys.length === 0 || keys.some((key) => typeof key !== 'string' || key.trim() === '') || new Set(keys).size !== keys.length) {
     throw new Error('Choose one or more distinct, nonempty key columns.');
   }
   if (typeof value !== 'string' || value.trim() === '') throw new Error('Choose a nonempty value column.');
   if (typeof beforeName !== 'string' || typeof afterName !== 'string') throw new Error('Dataset names must be strings.');
+  if (typeof aggregate !== 'boolean') throw new TypeError('The aggregate option must be a boolean.');
   validateDataset(beforeDataset, 'Before CSV');
   validateDataset(afterDataset, 'After CSV');
 
@@ -176,10 +179,21 @@ export function reconcile(beforeDataset, afterDataset, options = {}) {
       const key = keyIndices.map((column) => row[column]);
       if (key.some((part) => part.trim() === '')) throw new Error(`${label} record ${index + 2} has a blank key.`);
       const identity = JSON.stringify(key);
-      if (records.has(identity)) throw new Error(`${label} record ${index + 2} has duplicate key ${identity}.`);
+      const existing = records.get(identity);
+      if (existing && !aggregate) throw new Error(`${label} record ${index + 2} has duplicate key ${identity}.`);
       const decimal = parseDecimal(row[valueIndex], `${label} record ${index + 2}, column ${JSON.stringify(value)}`);
       scale = Math.max(scale, decimal.scale);
-      records.set(identity, { key, decimal });
+      if (existing) {
+        const groupScale = Math.max(existing.decimal.scale, decimal.scale);
+        existing.decimal = {
+          coefficient: existing.decimal.coefficient * 10n ** BigInt(groupScale - existing.decimal.scale)
+            + decimal.coefficient * 10n ** BigInt(groupScale - decimal.scale),
+          scale: groupScale,
+        };
+        existing.count += 1;
+      } else {
+        records.set(identity, { key, decimal, count: 1 });
+      }
     }
     return records;
   };
@@ -212,6 +226,7 @@ export function reconcile(beforeDataset, afterDataset, options = {}) {
       after: newRecord ? formatDecimal(newUnits, scale) : null,
       delta: formatDecimal(delta, scale),
       status,
+      ...(aggregate ? { beforeCount: oldRecord?.count ?? 0, afterCount: newRecord?.count ?? 0 } : {}),
     });
   };
   for (const [identity, record] of before) append(record, after.get(identity));
@@ -223,6 +238,7 @@ export function reconcile(beforeDataset, afterDataset, options = {}) {
     value,
     beforeName,
     afterName,
+    ...(aggregate ? { aggregation: 'sum', sourceCounts: { before: beforeDataset.rows.length, after: afterDataset.rows.length } } : {}),
     scale,
     totals: Object.fromEntries(Object.entries(totals).map(([name, units]) => [name, formatDecimal(units, scale)])),
     counts,
