@@ -42,6 +42,13 @@ dialog{border:0;padding:30px;border-radius:24px;color:var(--ink);background:#fff
 .check-line.warn{background:#fff5ef;color:#8d3915}
 .check-mark{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;margin-top:1px;border:1.5px solid currentColor;border-radius:50%;font-size:10px;font-weight:700;line-height:1}
 .check-actions{grid-column:2;margin-top:4px}
+.mapping-check.has-error-actions .check-actions{display:none}
+.pair-note{margin:12px 0 0;padding:10px 12px;border-radius:10px;background:#f5f7fa;color:#4e5968;font-size:12px;line-height:1.6;overflow-wrap:anywhere}
+.file-drop.has-error{border-style:solid;border-color:#e7a383;background:#fff5ef}
+.file-drop.has-error .file-icon{background:#ffe9dd;color:#943b17}
+.file-drop.has-error>span:last-of-type{color:#943b17}
+/* Keep scrolled-to content clear of the sticky dialog header and footer. */
+.comparison-dialog{scroll-padding-block:84px 112px}
 .drop-overlay{position:fixed;inset:0;z-index:60;display:flex;align-items:center;justify-content:center;padding:24px;background:#eff5ffeb;pointer-events:none}
 .drop-overlay>div{display:flex;flex-direction:column;align-items:center;gap:10px;max-width:420px;padding:44px 52px;border:2px dashed var(--blue);border-radius:24px;background:#fff;color:var(--blue);text-align:center}
 .drop-overlay strong{font-size:20px;letter-spacing:-.4px;color:var(--ink)}
@@ -49,13 +56,14 @@ dialog{border:0;padding:30px;border-radius:24px;color:var(--ink);background:#fff
 
 /* Report additions */
 .contribution-split{display:flex;flex-wrap:wrap;gap:4px 14px;margin-top:10px;font-size:12px;font-weight:600;font-variant-numeric:tabular-nums}
-.contribution-split small{margin-left:5px;font-size:11px;font-weight:400;color:var(--muted)}
+.contribution-split>span{min-width:0;overflow-wrap:anywhere}
+.contribution-split small{margin-left:5px;font-size:11px;font-weight:400;color:var(--muted);white-space:nowrap}
 .contribution-split .muted{color:var(--muted)}
 .generated-at{color:var(--muted)}
 .report-notices{display:grid;gap:10px;margin-top:14px}
 .report-notices:empty{display:none}
 .report-notice{padding:14px 18px;border:1px solid #f1d7b6;border-radius:12px;background:#fff8ec;color:#79522d;font-size:13px;line-height:1.7;overflow-wrap:anywhere}
-.drivers-summary{margin:-4px 0 14px;color:var(--muted);font-size:13px;line-height:1.6}
+.drivers-summary{margin:-4px 0 14px;color:var(--muted);font-size:13px;line-height:1.6;overflow-wrap:anywhere}
 .axis-note{margin-top:2px}
 @media(max-width:600px){
 .filters{flex-wrap:wrap;overflow:visible}

@@ -216,11 +216,13 @@ test('Markdown splits matched changes into increases and decreases', () => {
     [['Atlas', '40000.00', 'y'], ['Cedar', '10400.00', 'y'], ['Same', '1', 'y']],
   );
   const md = renderMarkdown(report);
+  // The change-type table still adds up to the difference; the split is a separate table.
+  const changeTable = md.split('\n\n').find(block => block.startsWith('| Change type'));
+  assert.deepEqual(changeTable.split('\n').slice(2).map(line => line.split(' | ')[0]), ['| added', '| removed', '| changed', '| unchanged']);
   assert.ok(md.includes('| changed | 2 | 400.00 |'));
-  assert.ok(md.includes('| changed: increases | 1 | 8000.00 |'));
-  assert.ok(md.includes('| changed: decreases | 1 | -7600.00 |'));
+  assert.ok(md.includes('| Changed values by direction | Rows | Contribution to difference |\n| --- | ---: | ---: |\n| increases | 1 | 8000.00 |\n| decreases | 1 | -7600.00 |'));
   const none = renderMarkdown(exportReport([['A', '1', 'x']], [['A', '1', 'y']]));
-  assert.ok(none.includes('| changed: increases | 0 | 0 |'));
-  assert.ok(none.includes('| changed: decreases | 0 | 0 |'));
+  assert.ok(none.includes('| increases | 0 | 0 |'));
+  assert.ok(none.includes('| decreases | 0 | 0 |'));
   assert.throws(() => renderMarkdown({ ...report, scale: 13 }), /decimal scale/);
 });

@@ -1,5 +1,7 @@
 /** Exact, dependency-free CSV reconciliation for Node.js and browsers. */
 
+import { decodeEucKr } from './euc-kr.mjs';
+
 export const MAX_ROWS = 100_000;
 export const MAX_TEXT_BYTES = 20 * 1024 * 1024;
 export const MAX_DECIMAL_PLACES = 12;
@@ -8,39 +10,68 @@ export const TEXT_ENCODINGS = Object.freeze(['utf-8', 'euc-kr']);
 export const DETECTABLE_DELIMITERS = Object.freeze([',', '\t', ';']);
 
 /**
- * Strictly decode file bytes. The WHATWG euc-kr decoder also covers the CP949
- * (Unified Hangul Code) files that Korean Windows editions of Excel save as CSV.
- * Invalid byte sequences fail instead of producing replacement characters.
+ * Strictly decode file bytes. euc-kr is the WHATWG decoder, which also covers
+ * the CP949 (Unified Hangul Code) files that Korean Windows editions of Excel
+ * save as CSV. Invalid byte sequences fail instead of producing replacement
+ * characters, and euc-kr refuses files that start with a UTF-8 byte order mark.
  */
 export function decodeText(bytes, encoding = 'utf-8') {
   if (!TEXT_ENCODINGS.includes(encoding)) {
-    throw new Error(`Unsupported text encoding ${JSON.stringify(String(encoding))}. Use utf-8 or euc-kr.`);
+    throw new Error(`Unsupported text encoding ${quoteText(String(encoding))}. Use utf-8 or euc-kr.`);
+  }
+  if (encoding === 'euc-kr') {
+    const view = ArrayBuffer.isView(bytes) ? new Uint8Array(bytes.buffer, bytes.byteOffset, bytes.byteLength) : new Uint8Array(bytes);
+    if (view[0] === 0xef && view[1] === 0xbb && view[2] === 0xbf) {
+      throw new Error('File starts with a UTF-8 byte order mark, so it is UTF-8 text, not EUC-KR (CP949).');
+    }
+    try {
+      // Browsers implement the WHATWG decoder natively; Node.js's ICU converter does not.
+      return decodeEucKr ? decodeEucKr(view) : new TextDecoder('euc-kr', { fatal: true }).decode(view);
+    } catch {
+      throw new Error('File is not valid EUC-KR (CP949) text.');
+    }
   }
   try {
-    return new TextDecoder(encoding, { fatal: true }).decode(bytes);
+    return new TextDecoder('utf-8', { fatal: true }).decode(bytes);
   } catch {
-    throw new Error(encoding === 'utf-8' ? 'File is not valid UTF-8 text.' : 'File is not valid EUC-KR (CP949) text.');
+    throw new Error('File is not valid UTF-8 text.');
   }
 }
 
 /**
- * Choose the comma, tab, or semicolon that appears most often outside quotes in
- * the header record. Ties and headers without a candidate keep the comma default.
+ * Choose the comma, tab, or semicolon separator from the header and the first
+ * 20 data records, counting candidates outside quotes. A candidate that appears
+ * in the header and gives every sampled record the same field count wins; among
+ * several, the one with most header fields wins. Without such a candidate, the
+ * most frequent header candidate wins. Ties keep the comma default.
  */
 export function detectDelimiter(text) {
   if (typeof text !== 'string') throw new TypeError('CSV input must be a string.');
-  const counts = new Map(DETECTABLE_DELIMITERS.map((delimiter) => [delimiter, 0]));
-  let position = text.charCodeAt(0) === 0xfeff ? 1 : 0;
-  while (text[position] === '\r' || text[position] === '\n') position += 1;
+  const empty = () => new Map(DETECTABLE_DELIMITERS.map((delimiter) => [delimiter, 0]));
+  const records = [];
+  let counts = null;
   let quoted = false;
-  for (; position < text.length; position += 1) {
+  let position = text.charCodeAt(0) === 0xfeff ? 1 : 0;
+  for (; position < text.length && records.length <= 20; position += 1) {
     const char = text[position];
+    if (!quoted && (char === '\r' || char === '\n')) {
+      if (counts) records.push(counts);
+      counts = null;
+      continue;
+    }
+    counts ||= empty();
     if (char === '"') quoted = !quoted;
-    else if (!quoted && (char === '\r' || char === '\n')) break;
     else if (!quoted && counts.has(char)) counts.set(char, counts.get(char) + 1);
   }
-  let best = ',';
-  for (const delimiter of DETECTABLE_DELIMITERS) if (counts.get(delimiter) > counts.get(best)) best = delimiter;
+  if (counts && position >= text.length) records.push(counts);
+  if (!records.length) return ',';
+  const [header, ...data] = records;
+  const consistent = DETECTABLE_DELIMITERS.filter((delimiter) => header.get(delimiter) > 0
+    && data.every((record) => record.get(delimiter) === header.get(delimiter)));
+  let best = consistent[0] || ',';
+  for (const delimiter of consistent.length ? consistent : DETECTABLE_DELIMITERS) {
+    if (header.get(delimiter) > header.get(best)) best = delimiter;
+  }
   return best;
 }
 
@@ -53,7 +84,7 @@ function validateHeaders(headers, label) {
     if (typeof header !== 'string' || header.trim() === '') {
       throw new Error(`${label} contains an empty header.`);
     }
-    if (seen.has(header)) throw new Error(`${label} contains duplicate header ${JSON.stringify(header)}.`);
+    if (seen.has(header)) throw new Error(`${label} contains duplicate header ${quoteText(header)}.`);
     seen.add(header);
   }
 }
@@ -184,8 +215,16 @@ function parseDecimal(value) {
 
 const ISSUE_EXAMPLES = 3;
 
+// Quote source text for messages. Control, bidi, and invisible format
+// characters become visible escapes, so a cell cannot restyle a terminal.
+function quoteText(value) {
+  return JSON.stringify(value).replace(/[\u007f-\u009f\u200b-\u200f\u2028-\u202e\u2060-\u206f\ufeff]/gu,
+    (char) => '\\u' + char.charCodeAt(0).toString(16).padStart(4, '0'));
+}
+
 function quoteCell(value) {
-  return JSON.stringify(value.length > 40 ? `${value.slice(0, 39)}…` : value);
+  const chars = Array.from(value);
+  return quoteText(chars.length > 40 ? `${chars.slice(0, 39).join('')}…` : value);
 }
 
 function noteIssue(issue, example) {
@@ -257,7 +296,7 @@ function scanDataset(dataset, { keys, value, aggregate }, build) {
 }
 
 function scanError(scan, label, value) {
-  if (scan.missing.length) return `${label} is missing column ${JSON.stringify(scan.missing[0])}.`;
+  if (scan.missing.length) return `${label} is missing column ${quoteText(scan.missing[0])}.`;
   const more = (issue, one, many) => {
     const extra = issue.count - 1;
     return extra > 0 ? ` ${extra.toLocaleString('en-US')} more ${extra === 1 ? one : many}.` : '';
@@ -268,11 +307,11 @@ function scanError(scan, label, value) {
   }
   if (duplicateKeys.count) {
     const [first] = duplicateKeys.examples;
-    return `${label} record ${first.record} has duplicate key ${JSON.stringify(first.key)}.${more(duplicateKeys, 'record repeats a key', 'records repeat keys')}`;
+    return `${label} record ${first.record} has duplicate key ${quoteText(first.key)}.${more(duplicateKeys, 'record repeats a key', 'records repeat keys')}`;
   }
   if (invalidValues.count) {
     const [first] = invalidValues.examples;
-    return `${label} record ${first.record}, column ${JSON.stringify(value)} ${first.problem}; found ${quoteCell(first.value)}.${more(invalidValues, 'value in this column is invalid', 'values in this column are invalid')}`;
+    return `${label} record ${first.record}, column ${quoteText(value)} ${first.problem}; found ${quoteCell(first.value)}.${more(invalidValues, 'value in this column is invalid', 'values in this column are invalid')}`;
   }
   return '';
 }
@@ -284,7 +323,7 @@ function scanError(scan, label, value) {
  * reported, never thrown.
  */
 export function inspectMapping(dataset, { keys, value, aggregate = false } = {}) {
-  if (!dataset || !Array.isArray(dataset.headers) || !Array.isArray(dataset.rows)) throw new Error('Inspect a parsed CSV dataset.');
+  validateDataset(dataset, 'Dataset');
   validateMappingOptions(keys, value);
   return scanDataset(dataset, { keys, value, aggregate: aggregate === true }, false).scan;
 }

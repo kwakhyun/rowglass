@@ -91,6 +91,13 @@ dialog{border:0;padding:30px;border-radius:24px;color:var(--ink);background:#fff
 .check-line.warn{background:#fff5ef;color:#8d3915}
 .check-mark{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;margin-top:1px;border:1.5px solid currentColor;border-radius:50%;font-size:10px;font-weight:700;line-height:1}
 .check-actions{grid-column:2;margin-top:4px}
+.mapping-check.has-error-actions .check-actions{display:none}
+.pair-note{margin:12px 0 0;padding:10px 12px;border-radius:10px;background:#f5f7fa;color:#4e5968;font-size:12px;line-height:1.6;overflow-wrap:anywhere}
+.file-drop.has-error{border-style:solid;border-color:#e7a383;background:#fff5ef}
+.file-drop.has-error .file-icon{background:#ffe9dd;color:#943b17}
+.file-drop.has-error>span:last-of-type{color:#943b17}
+/* Keep scrolled-to content clear of the sticky dialog header and footer. */
+.comparison-dialog{scroll-padding-block:84px 112px}
 .drop-overlay{position:fixed;inset:0;z-index:60;display:flex;align-items:center;justify-content:center;padding:24px;background:#eff5ffeb;pointer-events:none}
 .drop-overlay>div{display:flex;flex-direction:column;align-items:center;gap:10px;max-width:420px;padding:44px 52px;border:2px dashed var(--blue);border-radius:24px;background:#fff;color:var(--blue);text-align:center}
 .drop-overlay strong{font-size:20px;letter-spacing:-.4px;color:var(--ink)}
@@ -98,13 +105,14 @@ dialog{border:0;padding:30px;border-radius:24px;color:var(--ink);background:#fff
 
 /* Report additions */
 .contribution-split{display:flex;flex-wrap:wrap;gap:4px 14px;margin-top:10px;font-size:12px;font-weight:600;font-variant-numeric:tabular-nums}
-.contribution-split small{margin-left:5px;font-size:11px;font-weight:400;color:var(--muted)}
+.contribution-split>span{min-width:0;overflow-wrap:anywhere}
+.contribution-split small{margin-left:5px;font-size:11px;font-weight:400;color:var(--muted);white-space:nowrap}
 .contribution-split .muted{color:var(--muted)}
 .generated-at{color:var(--muted)}
 .report-notices{display:grid;gap:10px;margin-top:14px}
 .report-notices:empty{display:none}
 .report-notice{padding:14px 18px;border:1px solid #f1d7b6;border-radius:12px;background:#fff8ec;color:#79522d;font-size:13px;line-height:1.7;overflow-wrap:anywhere}
-.drivers-summary{margin:-4px 0 14px;color:var(--muted);font-size:13px;line-height:1.6}
+.drivers-summary{margin:-4px 0 14px;color:var(--muted);font-size:13px;line-height:1.6;overflow-wrap:anywhere}
 .axis-note{margin-top:2px}
 @media(max-width:600px){
 .filters{flex-wrap:wrap;overflow:visible}
@@ -166,8 +174,8 @@ dialog{border:0;padding:30px;border-radius:24px;color:var(--ink);background:#fff
   <path d="M14 13h2" />
   <path d="M8 17h2" />
   <path d="M14 17h2" /></svg></span><strong id="after-file-label">Choose a file</strong><span id="after-file-meta">or drop a CSV here</span><input type="file" id="after-file" accept=".csv,.tsv,.txt,text/csv,text/tab-separated-values,text/plain" aria-label="After CSV file" aria-describedby="after-file-label after-file-meta"></label></div>
-<fieldset id="mapping-fields" class="mapping-fields" hidden><legend>Connect the right columns</legend><div class="field comparison-mode"><label for="comparison-mode">Comparison method</label><select id="comparison-mode" aria-describedby="mode-description"><option value="rows">Match unique rows</option><option value="groups">Group &amp; sum</option></select><p id="mode-description">Each selected key must identify one row. Duplicate keys stop the comparison.</p></div><div class="mapping-grid"><div class="field"><label for="key-select" id="key-label">Match rows by</label><p id="key-help">A column with a unique ID for every row.</p><select id="key-select" disabled aria-describedby="key-help key-preview"><option value="">Choose files first</option></select><small id="key-preview"></small></div><div class="field"><label for="value-select">Column to total</label><p id="value-help">The numeric values you want to compare.</p><select id="value-select" disabled aria-describedby="value-help value-preview"><option value="">Choose files first</option></select><small id="value-preview"></small></div></div><details id="extra-keys-details" class="extra-keys-details"><summary><span id="extra-key-summary">Add key columns</span><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" class="icon" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6" /></svg></summary><p>Combine columns such as account + service. All selected values form one key.</p><div id="extra-keys" class="extra-keys" role="group" aria-label="Additional key columns"></div></details><div id="mapping-check" class="mapping-check" aria-live="polite"></div></fieldset>
-<details class="file-options"><summary>File format and limits <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" class="icon" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6" /></svg></summary><div><div class="format-grid"><div><label for="delimiter">Column separator</label><select id="delimiter"><option value="auto">Detect automatically</option><option value=",">Comma (CSV)</option><option value="tab">Tab (TSV)</option><option value=";">Semicolon</option></select></div><div><label for="encoding">Text encoding</label><select id="encoding"><option value="utf-8">UTF-8</option><option value="euc-kr">Korean (EUC-KR / CP949)</option></select></div></div><p>Files up to 20 MiB and 100,000 rows each. Automatic detection reads the header row. Korean Excel “CSV” files usually need EUC-KR. Numbers use a decimal point, without currency symbols or thousands separators. Use the same units and reporting period on both sides.</p></div></details>
+<p id="pair-note" class="pair-note" hidden></p><fieldset id="mapping-fields" class="mapping-fields" hidden><legend>Connect the right columns</legend><div class="field comparison-mode"><label for="comparison-mode">Comparison method</label><select id="comparison-mode" aria-describedby="mode-description"><option value="rows">Match unique rows</option><option value="groups">Group &amp; sum</option></select><p id="mode-description">Each selected key must identify one row. Duplicate keys stop the comparison.</p></div><div class="mapping-grid"><div class="field"><label for="key-select" id="key-label">Match rows by</label><p id="key-help">A column with a unique ID for every row.</p><select id="key-select" disabled aria-describedby="key-help key-preview"><option value="">Choose files first</option></select><small id="key-preview"></small></div><div class="field"><label for="value-select">Column to total</label><p id="value-help">The numeric values you want to compare.</p><select id="value-select" disabled aria-describedby="value-help value-preview"><option value="">Choose files first</option></select><small id="value-preview"></small></div></div><details id="extra-keys-details" class="extra-keys-details"><summary><span id="extra-key-summary">Add key columns</span><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" class="icon" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6" /></svg></summary><p>Combine columns such as account + service. All selected values form one key.</p><div id="extra-keys" class="extra-keys" role="group" aria-label="Additional key columns"></div></details><div id="mapping-check" class="mapping-check" aria-live="polite"></div></fieldset>
+<details class="file-options"><summary>File format and limits <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" class="icon" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6" /></svg></summary><div><div class="format-grid"><div><label for="delimiter">Column separator</label><select id="delimiter"><option value="auto">Detect automatically</option><option value=",">Comma (CSV)</option><option value="tab">Tab (TSV)</option><option value=";">Semicolon</option></select></div><div><label for="before-encoding">Before file encoding</label><select id="before-encoding"><option value="utf-8">UTF-8</option><option value="euc-kr">Korean (EUC-KR / CP949)</option></select></div><div><label for="after-encoding">After file encoding</label><select id="after-encoding"><option value="utf-8">UTF-8</option><option value="euc-kr">Korean (EUC-KR / CP949)</option></select></div></div><p>Files up to 20 MiB and 100,000 rows each; the size limit applies to the text as UTF-8, so mostly Korean EUC-KR files fit up to about 13 MiB. Automatic detection checks the header against the first records. Korean Excel “CSV” files usually need EUC-KR; “CSV UTF-8” files do not. Numbers use a decimal point, without currency symbols or thousands separators. Use the same units and reporting period on both sides.</p></div></details>
 <div id="error" class="error-message" role="alert" tabindex="-1" hidden><p id="error-text"></p><div id="error-actions" class="error-actions" hidden></div></div><p id="file-status" class="file-status" role="status" aria-live="polite">Choose a before file and an after file to get started.</p><div class="dialog-actions"><div><button id="sample-button" class="button quiet" type="button">Try the example</button><button id="reset-comparison" class="button quiet muted" type="button">Clear files</button></div><button id="compare" class="button primary" type="submit" disabled>Compare files <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" class="icon" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14" />
   <path d="m12 5 7 7-7 7" /></svg></button></div></form></dialog>
 <dialog id="row-dialog" class="row-dialog" aria-labelledby="detail-key" aria-describedby="detail-note"><div class="dialog-header"><p class="eyebrow" id="detail-kind">Row details</p><button id="close-dialog" class="icon-button" aria-label="Close row details" type="button"><svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" class="icon" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18" />
@@ -181,6 +189,8 @@ dialog{border:0;padding:30px;border-radius:24px;color:var(--ink);background:#fff
 <script id="rowglass-data" type="application/json">{"report":{"version":1,"keys":["account"],"value":"amount","beforeName":"before.csv","afterName":"after.csv","scale":2,"totals":{"before":"128000.00","after":"141400.00","delta":"13400.00","added":"21000.00","removed":"-8000.00","changed":"400.00"},"counts":{"before":8,"after":9,"added":2,"removed":1,"changed":2,"unchanged":5},"schema":{"added":[],"removed":[]},"rows":[{"key":["Atlas"],"before":"32000.00","after":"40000.00","delta":"8000.00","status":"changed"},{"key":["Beacon"],"before":"24000.00","after":"24000.00","delta":"0.00","status":"unchanged"},{"key":["Cedar"],"before":"18000.00","after":"10400.00","delta":"-7600.00","status":"changed"},{"key":["Delta"],"before":"16000.00","after":"16000.00","delta":"0.00","status":"unchanged"},{"key":["Evergreen"],"before":"12000.00","after":"12000.00","delta":"0.00","status":"unchanged"},{"key":["Fjord"],"before":"10000.00","after":"10000.00","delta":"0.00","status":"unchanged"},{"key":["Grove"],"before":"8000.00","after":null,"delta":"-8000.00","status":"removed"},{"key":["Harbor"],"before":"8000.00","after":"8000.00","delta":"0.00","status":"unchanged"},{"key":["Juniper"],"before":null,"after":"9000.00","delta":"9000.00","status":"added"},{"key":["Indigo"],"before":null,"after":"12000.00","delta":"12000.00","status":"added"}]},"sample":true,"example":{"version":1,"keys":["account"],"value":"amount","beforeName":"before.csv","afterName":"after.csv","scale":2,"totals":{"before":"128000.00","after":"141400.00","delta":"13400.00","added":"21000.00","removed":"-8000.00","changed":"400.00"},"counts":{"before":8,"after":9,"added":2,"removed":1,"changed":2,"unchanged":5},"schema":{"added":[],"removed":[]},"rows":[{"key":["Atlas"],"before":"32000.00","after":"40000.00","delta":"8000.00","status":"changed"},{"key":["Beacon"],"before":"24000.00","after":"24000.00","delta":"0.00","status":"unchanged"},{"key":["Cedar"],"before":"18000.00","after":"10400.00","delta":"-7600.00","status":"changed"},{"key":["Delta"],"before":"16000.00","after":"16000.00","delta":"0.00","status":"unchanged"},{"key":["Evergreen"],"before":"12000.00","after":"12000.00","delta":"0.00","status":"unchanged"},{"key":["Fjord"],"before":"10000.00","after":"10000.00","delta":"0.00","status":"unchanged"},{"key":["Grove"],"before":"8000.00","after":null,"delta":"-8000.00","status":"removed"},{"key":["Harbor"],"before":"8000.00","after":"8000.00","delta":"0.00","status":"unchanged"},{"key":["Juniper"],"before":null,"after":"9000.00","delta":"9000.00","status":"added"},{"key":["Indigo"],"before":null,"after":"12000.00","delta":"12000.00","status":"added"}]},"groupExample":{"version":1,"keys":["account","service"],"value":"cost","beforeName":"usage-before.csv","afterName":"usage-after.csv","aggregation":"sum","sourceCounts":{"before":6,"after":5},"scale":2,"totals":{"before":"285.30","after":"310.30","delta":"25.00","added":"50.00","removed":"-35.00","changed":"10.00"},"counts":{"before":5,"after":4,"added":1,"removed":2,"changed":2,"unchanged":1},"schema":{"added":[],"removed":[]},"rows":[{"key":["Atlas","Compute"],"before":"150.30","after":"180.30","delta":"30.00","status":"changed","beforeCount":2,"afterCount":2},{"key":["Atlas","Storage"],"before":"20.00","after":"20.00","delta":"0.00","status":"unchanged","beforeCount":1,"afterCount":1},{"key":["Beacon","Compute"],"before":"80.00","after":"60.00","delta":"-20.00","status":"changed","beforeCount":1,"afterCount":1},{"key":["Beacon","Support"],"before":"-5.00","after":null,"delta":"5.00","status":"removed","beforeCount":1,"afterCount":0},{"key":["Cedar","Compute"],"before":"40.00","after":null,"delta":"-40.00","status":"removed","beforeCount":1,"afterCount":0},{"key":["Delta","Compute"],"before":null,"after":"50.00","delta":"50.00","status":"added","beforeCount":0,"afterCount":1}]},"generatedAt":null}</script>
 <script type="module">/** Exact, dependency-free CSV reconciliation for Node.js and browsers. */
 
+const decodeEucKr = null;
+
 export const MAX_ROWS = 100_000;
 export const MAX_TEXT_BYTES = 20 * 1024 * 1024;
 export const MAX_DECIMAL_PLACES = 12;
@@ -189,39 +199,68 @@ export const TEXT_ENCODINGS = Object.freeze(['utf-8', 'euc-kr']);
 export const DETECTABLE_DELIMITERS = Object.freeze([',', '\t', ';']);
 
 /**
- * Strictly decode file bytes. The WHATWG euc-kr decoder also covers the CP949
- * (Unified Hangul Code) files that Korean Windows editions of Excel save as CSV.
- * Invalid byte sequences fail instead of producing replacement characters.
+ * Strictly decode file bytes. euc-kr is the WHATWG decoder, which also covers
+ * the CP949 (Unified Hangul Code) files that Korean Windows editions of Excel
+ * save as CSV. Invalid byte sequences fail instead of producing replacement
+ * characters, and euc-kr refuses files that start with a UTF-8 byte order mark.
  */
 export function decodeText(bytes, encoding = 'utf-8') {
   if (!TEXT_ENCODINGS.includes(encoding)) {
-    throw new Error(`Unsupported text encoding ${JSON.stringify(String(encoding))}. Use utf-8 or euc-kr.`);
+    throw new Error(`Unsupported text encoding ${quoteText(String(encoding))}. Use utf-8 or euc-kr.`);
+  }
+  if (encoding === 'euc-kr') {
+    const view = ArrayBuffer.isView(bytes) ? new Uint8Array(bytes.buffer, bytes.byteOffset, bytes.byteLength) : new Uint8Array(bytes);
+    if (view[0] === 0xef && view[1] === 0xbb && view[2] === 0xbf) {
+      throw new Error('File starts with a UTF-8 byte order mark, so it is UTF-8 text, not EUC-KR (CP949).');
+    }
+    try {
+      // Browsers implement the WHATWG decoder natively; Node.js's ICU converter does not.
+      return decodeEucKr ? decodeEucKr(view) : new TextDecoder('euc-kr', { fatal: true }).decode(view);
+    } catch {
+      throw new Error('File is not valid EUC-KR (CP949) text.');
+    }
   }
   try {
-    return new TextDecoder(encoding, { fatal: true }).decode(bytes);
+    return new TextDecoder('utf-8', { fatal: true }).decode(bytes);
   } catch {
-    throw new Error(encoding === 'utf-8' ? 'File is not valid UTF-8 text.' : 'File is not valid EUC-KR (CP949) text.');
+    throw new Error('File is not valid UTF-8 text.');
   }
 }
 
 /**
- * Choose the comma, tab, or semicolon that appears most often outside quotes in
- * the header record. Ties and headers without a candidate keep the comma default.
+ * Choose the comma, tab, or semicolon separator from the header and the first
+ * 20 data records, counting candidates outside quotes. A candidate that appears
+ * in the header and gives every sampled record the same field count wins; among
+ * several, the one with most header fields wins. Without such a candidate, the
+ * most frequent header candidate wins. Ties keep the comma default.
  */
 export function detectDelimiter(text) {
   if (typeof text !== 'string') throw new TypeError('CSV input must be a string.');
-  const counts = new Map(DETECTABLE_DELIMITERS.map((delimiter) => [delimiter, 0]));
-  let position = text.charCodeAt(0) === 0xfeff ? 1 : 0;
-  while (text[position] === '\r' || text[position] === '\n') position += 1;
+  const empty = () => new Map(DETECTABLE_DELIMITERS.map((delimiter) => [delimiter, 0]));
+  const records = [];
+  let counts = null;
   let quoted = false;
-  for (; position < text.length; position += 1) {
+  let position = text.charCodeAt(0) === 0xfeff ? 1 : 0;
+  for (; position < text.length && records.length <= 20; position += 1) {
     const char = text[position];
+    if (!quoted && (char === '\r' || char === '\n')) {
+      if (counts) records.push(counts);
+      counts = null;
+      continue;
+    }
+    counts ||= empty();
     if (char === '"') quoted = !quoted;
-    else if (!quoted && (char === '\r' || char === '\n')) break;
     else if (!quoted && counts.has(char)) counts.set(char, counts.get(char) + 1);
   }
-  let best = ',';
-  for (const delimiter of DETECTABLE_DELIMITERS) if (counts.get(delimiter) > counts.get(best)) best = delimiter;
+  if (counts && position >= text.length) records.push(counts);
+  if (!records.length) return ',';
+  const [header, ...data] = records;
+  const consistent = DETECTABLE_DELIMITERS.filter((delimiter) => header.get(delimiter) > 0
+    && data.every((record) => record.get(delimiter) === header.get(delimiter)));
+  let best = consistent[0] || ',';
+  for (const delimiter of consistent.length ? consistent : DETECTABLE_DELIMITERS) {
+    if (header.get(delimiter) > header.get(best)) best = delimiter;
+  }
   return best;
 }
 
@@ -234,7 +273,7 @@ function validateHeaders(headers, label) {
     if (typeof header !== 'string' || header.trim() === '') {
       throw new Error(`${label} contains an empty header.`);
     }
-    if (seen.has(header)) throw new Error(`${label} contains duplicate header ${JSON.stringify(header)}.`);
+    if (seen.has(header)) throw new Error(`${label} contains duplicate header ${quoteText(header)}.`);
     seen.add(header);
   }
 }
@@ -365,8 +404,16 @@ function parseDecimal(value) {
 
 const ISSUE_EXAMPLES = 3;
 
+// Quote source text for messages. Control, bidi, and invisible format
+// characters become visible escapes, so a cell cannot restyle a terminal.
+function quoteText(value) {
+  return JSON.stringify(value).replace(/[\u007f-\u009f\u200b-\u200f\u2028-\u202e\u2060-\u206f\ufeff]/gu,
+    (char) => '\\u' + char.charCodeAt(0).toString(16).padStart(4, '0'));
+}
+
 function quoteCell(value) {
-  return JSON.stringify(value.length > 40 ? `${value.slice(0, 39)}…` : value);
+  const chars = Array.from(value);
+  return quoteText(chars.length > 40 ? `${chars.slice(0, 39).join('')}…` : value);
 }
 
 function noteIssue(issue, example) {
@@ -438,7 +485,7 @@ function scanDataset(dataset, { keys, value, aggregate }, build) {
 }
 
 function scanError(scan, label, value) {
-  if (scan.missing.length) return `${label} is missing column ${JSON.stringify(scan.missing[0])}.`;
+  if (scan.missing.length) return `${label} is missing column ${quoteText(scan.missing[0])}.`;
   const more = (issue, one, many) => {
     const extra = issue.count - 1;
     return extra > 0 ? ` ${extra.toLocaleString('en-US')} more ${extra === 1 ? one : many}.` : '';
@@ -449,11 +496,11 @@ function scanError(scan, label, value) {
   }
   if (duplicateKeys.count) {
     const [first] = duplicateKeys.examples;
-    return `${label} record ${first.record} has duplicate key ${JSON.stringify(first.key)}.${more(duplicateKeys, 'record repeats a key', 'records repeat keys')}`;
+    return `${label} record ${first.record} has duplicate key ${quoteText(first.key)}.${more(duplicateKeys, 'record repeats a key', 'records repeat keys')}`;
   }
   if (invalidValues.count) {
     const [first] = invalidValues.examples;
-    return `${label} record ${first.record}, column ${JSON.stringify(value)} ${first.problem}; found ${quoteCell(first.value)}.${more(invalidValues, 'value in this column is invalid', 'values in this column are invalid')}`;
+    return `${label} record ${first.record}, column ${quoteText(value)} ${first.problem}; found ${quoteCell(first.value)}.${more(invalidValues, 'value in this column is invalid', 'values in this column are invalid')}`;
   }
   return '';
 }
@@ -465,7 +512,7 @@ function scanError(scan, label, value) {
  * reported, never thrown.
  */
 export function inspectMapping(dataset, { keys, value, aggregate = false } = {}) {
-  if (!dataset || !Array.isArray(dataset.headers) || !Array.isArray(dataset.rows)) throw new Error('Inspect a parsed CSV dataset.');
+  validateDataset(dataset, 'Dataset');
   validateMappingOptions(keys, value);
   return scanDataset(dataset, { keys, value, aggregate: aggregate === true }, false).scan;
 }
@@ -791,8 +838,11 @@ export function renderMarkdown(report) {
     '| --- | ---: | ---: |',
     ...['added', 'removed', 'changed'].map(status =>
       '| ' + status + ' | ' + rowglassExportCount(report.counts[status]) + ' | ' + rowglassExportDecimal(report.totals[status]) + ' |'),
-    ...directions.map(direction => '| changed: ' + direction.name + ' | ' + rowglassExportCount(direction.count) + ' | ' + direction.total + ' |'),
     '| unchanged | ' + rowglassExportCount(report.counts.unchanged) + ' | 0 |',
+    '',
+    '| Changed values by direction | ' + (grouped ? 'Groups' : 'Rows') + ' | Contribution to difference |',
+    '| --- | ---: | ---: |',
+    ...directions.map(direction => '| ' + direction.name + ' | ' + rowglassExportCount(direction.count) + ' | ' + direction.total + ' |'),
     '',
     '| Population | Before | After |',
     '| --- | ---: | ---: |',
@@ -889,7 +939,10 @@ function motion() {
 function scrollToRows() {
   $('rows-label').scrollIntoView({ behavior: motion(), block: 'start' });
 }
-function quoted(key) { return JSON.stringify(Array.isArray(key) ? key.join(' / ') : key); }
+// quoteCell (engine) shortens long text and escapes invisible characters.
+function quoted(key) { return quoteCell(Array.isArray(key) ? key.join(' / ') : String(key)); }
+// Engine messages quote source text; classify them without it, so a cell cannot choose the hint.
+function errorShape(message) { return String(message).replace(/"(?:[^"\\]|\\.)*"/g, '""'); }
 function actionButton(label, run) {
   const button = element('button', label, 'button secondary small');
   button.type = 'button';
@@ -908,6 +961,8 @@ function setError(message = '', actions = [], reveal = '') {
   $('error-actions').replaceChildren(...actions.map(action => actionButton(action.label, action.run)));
   $('error-actions').hidden = !actions.length;
   $('error').hidden = !message;
+  // The error box then carries the fix buttons, so the column check does not repeat them.
+  $('mapping-check').classList.toggle('has-error-actions', !!message && actions.length > 0);
   if (!message || !reveal) return;
   requestAnimationFrame(() => {
     $('error').scrollIntoView({ behavior: motion(), block: 'center' });
@@ -1112,13 +1167,13 @@ function renderNotices() {
   const similar = findSimilarKeys(report);
   if (similar.count) {
     const [first] = similar.examples;
-    notices.push(notice(`Possible key mismatch: ${countLabel(similar.count, `added ${reportNoun()}`)} ${similar.count === 1 ? 'matches a removed one' : 'match removed ones'} except for letter case, spacing, or character width, e.g. ${quoted(first.removed)} → ${quoted(first.added)}. Keys are matched exactly, so each pair counts as one removal and one addition. Fix the source keys if they name the same thing.`));
+    notices.push(notice(`Possible key mismatch: ${countLabel(similar.count, `added ${reportNoun()}`)} ${similar.count === 1 ? 'matches a removed one' : 'match removed ones'} except for letter case, spacing, character width, or Unicode form (such as decomposed Hangul), e.g. ${quoted(first.removed)} → ${quoted(first.added)}. Keys are matched exactly, so each pair counts as one removal and one addition. Fix the source keys if they name the same thing.`));
   }
   const { added, removed } = report.schema;
   if (added.length || removed.length) {
-    const list = names => names.map(name => JSON.stringify(name)).join(', ');
+    const list = names => names.map(quoted).join(', ');
     const changes = [added.length ? `adds ${list(added)}` : '', removed.length ? `drops ${list(removed)}` : ''].filter(Boolean).join(' and ');
-    notices.push(notice(`Columns differ between the files: the after file ${changes}. Only ${JSON.stringify(report.value)} is compared.`));
+    notices.push(notice(`Columns differ between the files: the after file ${changes}. Only ${quoted(report.value)} is compared.`));
   }
   $('report-notices').replaceChildren(...notices);
 }
@@ -1199,12 +1254,12 @@ function renderReport() {
   split.replaceChildren();
   if (!split.hidden) {
     const part = (arrow, side, noun) => {
-      const node = element('span', `${arrow} ${display(side.total, true)} `, side.count ? direction(side.total) : 'muted');
-      node.append(element('small', `${side.count} ${noun}${side.count === 1 ? '' : 's'}`));
+      const node = element('span', `${arrow}\u00a0${display(side.total, true)} `, side.count ? direction(side.total) : 'muted');
+      node.append(element('small', countLabel(side.count, noun)));
       return node;
     };
     split.append(part('↑', movement.increased, 'increase'), part('↓', movement.decreased, 'decrease'));
-    $('contrib-changed').setAttribute('aria-label', `${labels.changed}: ${display(report.totals.changed, true)} across ${reportCount(report.counts.changed)}: ${display(movement.increased.total, true)} from ${movement.increased.count} increases and ${display(movement.decreased.total, true)} from ${movement.decreased.count} decreases. Show ${reportNoun()}s.`);
+    $('contrib-changed').setAttribute('aria-label', `${labels.changed}: ${display(report.totals.changed, true)} across ${reportCount(report.counts.changed)}: ${display(movement.increased.total, true)} from ${countLabel(movement.increased.count, 'increase')} and ${display(movement.decreased.total, true)} from ${countLabel(movement.decreased.count, 'decrease')}. Show ${reportNoun()}s.`);
   }
   const term = value => value.startsWith('-') ? `− ${display(value.slice(1))}` : `+ ${display(value)}`;
   $('equation').textContent = `${display(report.totals.before)} ${term(report.totals.added)} ${term(report.totals.removed)} ${term(report.totals.changed)} = ${display(report.totals.after)}`;
@@ -1434,12 +1489,17 @@ function setMapping(previousKeys, previousValue) {
   }
   const missingKeys = previousKeys.some(key => !common.includes(key));
   const keyPattern = /^(id|account|customer|client|name|key|code|sku|계정|고객|고객명|거래처|이름|코드|품목)$/i;
+  // Identifier names such as order_id, Invoice No, or 거래처코드 are often numeric, so check them before text columns.
+  const idPattern = header => /(^|[_\s.-])(id|no|num|number|code|key|sku)$|(번호|코드|아이디)$/i.test(header) || /[a-z](Id|ID)$/.test(header);
   const valuePattern = /^(amount|revenue|sales|cost|total|value|usage|price|금액|매출|비용|합계|사용량)$/i;
   $('key-select').value = missingKeys ? ''
-    : previousKeys[0] || common.find(header => keyPattern.test(header)) || common.find(header => !numeric.has(header)) || common[0];
+    : previousKeys[0] || common.find(header => keyPattern.test(header)) || common.find(idPattern)
+      || common.find(header => !numeric.has(header)) || common[0];
   const key = $('key-select').value;
+  // A named metric with a bad cell still wins, so the column check can point at that cell.
   $('value-select').value = previousValue ? (common.includes(previousValue) ? previousValue : '')
     : common.find(header => valuePattern.test(header) && numeric.has(header) && header !== key)
+      || common.find(header => valuePattern.test(header) && header !== key)
       || common.find(header => numeric.has(header) && header !== key)
       || common.find(header => header !== key);
   updateExtraKeys(missingKeys ? [] : previousKeys);
@@ -1461,7 +1521,12 @@ function showExtraKeys() {
 }
 function checkLine(tone, text, actions = []) {
   const line = element('div', undefined, `check-line ${tone}`);
-  line.append(element('span', tone === 'ok' ? '✓' : tone === 'warn' ? '!' : 'i', 'check-mark'), element('p', text));
+  const mark = element('span', tone === 'ok' ? '✓' : tone === 'warn' ? '!' : 'i', 'check-mark');
+  mark.setAttribute('aria-hidden', 'true');
+  const paragraph = element('p');
+  if (tone !== 'info') paragraph.append(element('span', tone === 'ok' ? 'OK: ' : 'Problem: ', 'sr-only'));
+  paragraph.append(text);
+  line.append(mark, paragraph);
   if (actions.length) {
     const group = element('div', undefined, 'check-actions');
     group.append(...actions.map(action => actionButton(action.label, action.run)));
@@ -1480,7 +1545,7 @@ function renderMappingCheck() {
     return;
   }
   if (keys.includes(value)) {
-    box.append(checkLine('warn', `${JSON.stringify(value)} is selected as both a key and the column to total. Choose different columns.`));
+    box.append(checkLine('warn', `${quoted(value)} is selected as both a key and the column to total. Choose different columns.`));
     return;
   }
   const grouped = $('comparison-mode').value === 'groups';
@@ -1498,7 +1563,7 @@ function renderMappingCheck() {
     }
     if (scan.invalidValues.count) {
       const first = scan.invalidValues.examples[0];
-      problems.push(`${countLabel(scan.invalidValues.count, 'value')} in ${JSON.stringify(value)} ${verb(scan.invalidValues.count, 'is not a plain number', 'are not plain numbers')}, e.g. ${JSON.stringify(first.value)} at record ${first.record}`);
+      problems.push(`${countLabel(scan.invalidValues.count, 'value')} in ${quoted(value)} ${verb(scan.invalidValues.count, 'is not a plain number', 'are not plain numbers')}, e.g. ${quoted(first.value)} at record ${first.record}`);
     }
     if (problems.length) {
       box.append(checkLine('warn', `${name}: ${problems.join('; ')}.`));
@@ -1517,19 +1582,28 @@ function renderMappingCheck() {
 }
 function readError(error) {
   const raw = error instanceof Error ? error.message : String(error);
-  const hint = /not valid UTF-8/i.test(raw)
-    ? 'Files saved as “CSV” by Korean Excel use EUC-KR: read them as Korean, or re-export as UTF-8 CSV.'
-    : /not valid EUC-KR/i.test(raw)
-      ? 'Choose UTF-8 under File format and limits, or re-export the file.'
-      : /20 MiB|100,000 row/.test(raw)
-        ? 'Use a smaller export within the file and row limits.'
-        : /decimal|integer digit|decimal place/.test(raw)
-          ? 'Choose a numeric column without blanks, currency symbols, separators, or surrounding spaces.'
-          : /duplicate key|blank key/.test(raw)
-            ? 'Add key columns to identify rows uniquely, or explicitly choose Group & sum to compare totals. Blank keys must be fixed in the source.'
-            : /fields; expected|header/.test(raw)
-              ? 'Check the column separator under File format and limits.'
-              : 'Check the selected columns, file contents, and separator, then try again.';
+  const shape = errorShape(raw);
+  const hint = /not valid UTF-8/i.test(shape)
+    ? 'Files saved as “CSV” by Korean Excel use EUC-KR: read this file as Korean, or re-export it as “CSV UTF-8”.'
+    : /byte order mark/.test(shape)
+      ? 'Read this file as UTF-8.'
+      : /not valid EUC-KR/i.test(shape)
+        ? 'Read this file as UTF-8, or re-export it.'
+        : /20 MiB|100,000 row/.test(shape)
+          ? 'Use a smaller export within the file and row limits.'
+          : /decimal|integer digit|decimal place/.test(shape)
+            ? 'Choose a numeric column without blanks, currency symbols, separators, or surrounding spaces.'
+            : /blank key/.test(shape)
+              ? 'Fill in the blank keys in the source file; neither extra key columns nor Group & sum accept blank keys.'
+              : /duplicate key/.test(shape)
+                ? 'Add key columns to identify rows uniquely, or explicitly choose Group & sum to compare totals.'
+                : /fields; expected/.test(shape)
+                  ? 'Check the column separator under File format and limits.'
+                  : /must contain a header row/.test(shape)
+                    ? 'The file is empty. Choose the exported CSV file.'
+                    : /empty header|duplicate header/.test(shape)
+                      ? 'Give every column in the header row a unique, non-empty name.'
+                      : 'Check the selected columns, file contents, and separator, then try again.';
   return `${raw} ${hint} The current report is unchanged.`;
 }
 async function readDataset(file, encoding) {
@@ -1538,10 +1612,24 @@ async function readDataset(file, encoding) {
   if (buffer.byteLength > MAX_TEXT_BYTES) throw new Error('File exceeds the 20 MiB limit.');
   return decodeText(buffer, encoding);
 }
+// Fix-it buttons disappear when the files reload, so keep keyboard focus in the dialog.
+async function reloadKeepingFocus() {
+  await loadFiles();
+  if (!$('comparison-dialog').open || (document.activeElement && document.activeElement !== document.body)) return;
+  (!$('error').hidden ? $('error') : !$('key-select').disabled ? $('key-select') : $('before-file')).focus({ preventScroll: true });
+}
+function setEncodings(list, encoding) {
+  for (const side of list) $(side + '-encoding').value = encoding;
+  setDirty(true);
+  reloadKeepingFocus();
+}
+const detectSeparatorAction = { label: 'Detect the separator', run: () => { $('delimiter').value = 'auto'; setDirty(true); reloadKeepingFocus(); } };
+const chooseSeparatorAction = { label: 'Choose the separator', run: () => { $('delimiter').closest('details').open = true; $('delimiter').focus(); } };
 async function loadFiles(note = '') {
   const revision = ++loadRevision;
   const snapshot = { ...files };
-  const choice = $('delimiter').value, encoding = $('encoding').value;
+  const choice = $('delimiter').value;
+  const encodings = { before: $('before-encoding').value, after: $('after-encoding').value };
   const activeKeys = selectedKeys();
   if (activeKeys.length) draftMapping = { keys: activeKeys, value: $('value-select').value };
   const previousKeys = [...draftMapping.keys], previousValue = draftMapping.value;
@@ -1554,12 +1642,12 @@ async function loadFiles(note = '') {
   $('file-status').textContent = draftHint('Reading selected files locally.');
   const results = await Promise.allSettled(sides.map(async side => {
     if (!snapshot[side]) return null;
-    const text = await readDataset(snapshot[side], encoding);
+    const text = await readDataset(snapshot[side], encodings[side]);
     const delimiter = choice === 'auto' ? detectDelimiter(text) : choice === 'tab' ? '\t' : choice;
-    return { dataset: parseCSV(text, { delimiter }), delimiter };
+    return { dataset: parseCSV(text, { delimiter }), delimiter, detected: choice === 'auto' ? delimiter : detectDelimiter(text) };
   }));
   if (revision !== loadRevision) return;
-  const errors = [];
+  const errors = [], failed = { utf8: [], eucKr: [], fields: false };
   results.forEach((result, index) => {
     const side = sides[index];
     if (result.status === 'fulfilled') {
@@ -1567,32 +1655,51 @@ async function loadFiles(note = '') {
       $(side + '-drop').classList.remove('has-error');
       $(side + '-file').removeAttribute('aria-invalid');
       $(side + '-file-meta').textContent = result.value
-        ? `${countLabel(parsed[side].rows.length)}, ${countLabel(parsed[side].headers.length, 'column')} · ${delimiterNames[result.value.delimiter]}${encoding === 'euc-kr' ? ' · EUC-KR' : ''}`
+        ? `${countLabel(parsed[side].rows.length)}, ${countLabel(parsed[side].headers.length, 'column')} · ${delimiterNames[result.value.delimiter]}${encodings[side] === 'euc-kr' ? ' · EUC-KR' : ''}`
         : 'or drop a file here';
     } else {
       $(side + '-drop').classList.add('has-error');
       $(side + '-file').setAttribute('aria-invalid', 'true');
       $(side + '-file-meta').textContent = 'Could not read this file';
+      const shape = errorShape(result.reason instanceof Error ? result.reason.message : result.reason);
+      if (/not valid UTF-8/.test(shape)) failed.utf8.push(side);
+      else if (/not valid EUC-KR|byte order mark/.test(shape)) failed.eucKr.push(side);
+      else if (/fields; expected/.test(shape)) failed.fields = true;
       errors.push(`${side === 'before' ? 'Before' : 'After'}: ${readError(result.reason)}`);
     }
   });
+  const which = list => list.length === 2 ? 'both files' : `the ${list[0]} file`;
   if (errors.length) {
     const actions = [];
-    if (encoding === 'utf-8' && errors.some(error => /not valid UTF-8/.test(error))) {
-      actions.push({ label: 'Read as Korean (EUC-KR)', run: () => { $('encoding').value = 'euc-kr'; setDirty(true); loadFiles(); } });
-    }
-    if (choice !== 'auto' && errors.some(error => /fields; expected|header/.test(error))) {
-      actions.push({ label: 'Detect the separator', run: () => { $('delimiter').value = 'auto'; setDirty(true); loadFiles(); } });
-    }
+    if (failed.utf8.length) actions.push({ label: `Read ${which(failed.utf8)} as Korean (EUC-KR)`, run: () => setEncodings(failed.utf8, 'euc-kr') });
+    if (failed.eucKr.length) actions.push({ label: `Read ${which(failed.eucKr)} as UTF-8`, run: () => setEncodings(failed.eucKr, 'utf-8') });
+    if (failed.fields) actions.push(choice === 'auto' ? chooseSeparatorAction : detectSeparatorAction);
     setError(errors.join('\n'), actions, 'scroll');
     $('file-status').textContent = draftHint('Resolve the file error to continue.');
   } else if (parsed.before && parsed.after) {
     try {
       setMapping(previousKeys, previousValue);
-      $('file-status').textContent = draftHint(`${note}Files ready. Confirm the key and metric, then select “Compare files”.`);
+      const problem = $('mapping-check').querySelector('.check-line.warn');
+      $('file-status').textContent = draftHint(`${note}${problem
+        ? 'Files read. Resolve the problems in the column check before comparing.'
+        : 'Files ready. Confirm the key and metric, then select “Compare files”.'}`);
+      // The check sits below the column choices, so bring a problem into view without moving focus.
+      if (problem) requestAnimationFrame(() => $('mapping-check').scrollIntoView({ behavior: motion(), block: 'nearest' }));
     } catch (error) {
       clearMapping();
-      setError(readError(error), [], 'scroll');
+      // A single column usually means the file uses a different separator.
+      const single = sides.filter((side, index) => results[index].value?.dataset.headers.length === 1);
+      if (single.length && choice !== 'auto') {
+        const suggested = [...new Set(single.map(side => results[sides.indexOf(side)].value.detected))];
+        const advice = suggested.length === 1 && suggested[0] !== (choice === 'tab' ? '\t' : choice)
+          ? ` ${single.length === 2 ? 'Their headers look' : 'Its header looks'} ${delimiterNames[suggested[0]]}-separated.` : '';
+        setError(`${error.message} With the ${delimiterNames[choice === 'tab' ? '\t' : choice]} separator, ${which(single)} ${single.length === 2 ? 'have' : 'has'} only one column.${advice} Detect the separator, or choose it under File format and limits. The current report is unchanged.`, [detectSeparatorAction], 'scroll');
+      } else if (single.length) {
+        const subject = which(single);
+        setError(`${error.message} ${subject[0].toUpperCase()}${subject.slice(1)} ${single.length === 2 ? 'have' : 'has'} only one column, and no comma, tab, or semicolon separator was found. Export ${single.length === 2 ? 'them' : 'it'} with one of these separators. The current report is unchanged.`, [], 'scroll');
+      } else {
+        setError(readError(error), [], 'scroll');
+      }
       $('file-status').textContent = draftHint('Check that both files have matching column names.');
     }
   } else {
@@ -1611,7 +1718,8 @@ function resetDraft() {
     $(side + '-drop').classList.remove('has-error');
   }
   $('delimiter').value = 'auto';
-  $('encoding').value = 'utf-8';
+  for (const side of sides) $(side + '-encoding').value = 'utf-8';
+  setPairNote();
   draftMapping = { keys: isSample ? [] : [...report.keys], value: isSample ? '' : report.value };
   $('comparison-mode').value = !isSample && report.aggregation === 'sum' ? 'groups' : 'rows';
   updateMode();
@@ -1623,15 +1731,40 @@ function resetDraft() {
   $('file-status').textContent = 'Choose two files to start. The current report is unchanged.';
 }
 function openComparison() {
+  clearDetails(true); // Never stack the comparison dialog on top of row details.
   if (!$('comparison-dialog').open) $('comparison-dialog').showModal();
+}
+function setPairNote(text = '') {
+  $('pair-note').textContent = text;
+  $('pair-note').hidden = !text;
 }
 function acceptFile(side, file) {
   if (!file) return; // Canceling the picker preserves the existing selection.
   files[side] = file;
+  setPairNote();
   setDirty(true);
   loadFiles();
 }
-// Files dropped anywhere: two files are ordered by name, one fills the first empty side.
+// Order two dropped files. Only the part where the names differ counts: before/after,
+// old/new, 전/후 and similar words decide; otherwise names sort with numbers in order.
+const beforeWords = /^(before|old|prev|previous|baseline|last|전)$/i;
+const afterWords = /^(after|new|current|curr|latest|this|후)$/i;
+function orderDroppedPair(a, b) {
+  const stem = file => file.name.replace(/\.[^.]+$/, '').normalize('NFC').toLowerCase();
+  const [x, y] = [stem(a), stem(b)];
+  let start = 0;
+  while (start < x.length && start < y.length && x[start] === y[start]) start += 1;
+  let end = 0;
+  while (end < x.length - start && end < y.length - start && x[x.length - 1 - end] === y[y.length - 1 - end]) end += 1;
+  const parts = [x.slice(start, x.length - end), y.slice(start, y.length - end)].map(part => part.replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, ''));
+  if (beforeWords.test(parts[0]) && afterWords.test(parts[1])) return { files: [a, b], rule: 'words' };
+  if (afterWords.test(parts[0]) && beforeWords.test(parts[1])) return { files: [b, a], rule: 'words' };
+  // A repeated browser download such as "export (1).csv" is newer than "export.csv".
+  if (!parts[0] && /^\d+$/.test(parts[1])) return { files: [a, b], rule: 'copy' };
+  if (!parts[1] && /^\d+$/.test(parts[0])) return { files: [b, a], rule: 'copy' };
+  return { files: [a, b].sort((p, q) => p.name.localeCompare(q.name, undefined, { numeric: true, sensitivity: 'base' })), rule: 'name' };
+}
+// Files dropped anywhere: two files are ordered as above, one fills the first empty side.
 function acceptDroppedFiles(list, side = null) {
   const dropped = Array.from(list || []);
   if (!dropped.length) return;
@@ -1640,12 +1773,12 @@ function acceptDroppedFiles(list, side = null) {
     setError('Drop at most two files: one before file and one after file.', [], 'scroll');
     return;
   }
-  let note = '';
   if (dropped.length === 2) {
-    const [first, second] = [...dropped].sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }));
+    const { files: [first, second], rule } = orderDroppedPair(dropped[0], dropped[1]);
     files.before = first; files.after = second;
     for (const name of sides) $(name + '-file').value = '';
-    note = `Ordered by file name: ${first.name} is before and ${second.name} is after. Use the swap button if that is reversed. `;
+    const reason = rule === 'words' ? 'from the words in their names' : rule === 'copy' ? 'treating the numbered copy as newer' : 'by file name';
+    setPairNote(`Check the order: ${first.name} is Before and ${second.name} is After, ${reason}. Use the swap button between the files if that is reversed.`);
   } else {
     const target = side || (!files.before ? 'before' : !files.after ? 'after' : null);
     if (!target) {
@@ -1655,9 +1788,10 @@ function acceptDroppedFiles(list, side = null) {
     }
     files[target] = dropped[0];
     $(target + '-file').value = '';
+    setPairNote();
   }
   setDirty(true);
-  loadFiles(note);
+  loadFiles();
 }
 for (const side of sides) {
   $(side + '-file').addEventListener('change', event => acceptFile(side, event.target.files[0]));
@@ -1691,7 +1825,8 @@ window.addEventListener('dragenter', event => {
   if (!carriesFiles(event)) return;
   event.preventDefault();
   pageDragDepth += 1;
-  if (!$('comparison-dialog').open) $('drop-overlay').hidden = false;
+  // A modal dialog sits above the overlay, so show it only over the report itself.
+  if (!document.querySelector('dialog[open]')) $('drop-overlay').hidden = false;
 });
 window.addEventListener('dragover', event => {
   if (!carriesFiles(event)) return;
@@ -1710,7 +1845,7 @@ window.addEventListener('drop', event => {
   endPageDrag();
   if (!handled) acceptDroppedFiles(event.dataTransfer.files);
 });
-for (const id of ['delimiter', 'encoding']) $(id).addEventListener('change', () => { setDirty(true); loadFiles(); });
+for (const id of ['delimiter', 'before-encoding', 'after-encoding']) $(id).addEventListener('change', () => { setDirty(true); loadFiles(); });
 for (const id of ['key-select', 'value-select']) $(id).addEventListener('change', () => {
   updateExtraKeys(selectedKeys());
   mappingChanged();
@@ -1718,7 +1853,10 @@ for (const id of ['key-select', 'value-select']) $(id).addEventListener('change'
 $('comparison-mode').addEventListener('change', () => { updateMode(); mappingChanged(); });
 $('swap-files').addEventListener('click', () => {
   [files.before, files.after] = [files.after, files.before];
+  // The encoding belongs to the file, so it moves with it.
+  [$('before-encoding').value, $('after-encoding').value] = [$('after-encoding').value, $('before-encoding').value];
   for (const side of sides) $(side + '-file').value = '';
+  setPairNote();
   setDirty(true);
   loadFiles();
 });
@@ -1747,7 +1885,7 @@ $('comparison-form').addEventListener('submit', event => {
     showToast('Comparison ready. You can save the complete report.');
   } catch (error) {
     const raw = error instanceof Error ? error.message : String(error);
-    const actions = /duplicate key/.test(raw) && $('comparison-mode').value === 'rows'
+    const actions = /duplicate key/.test(errorShape(raw)) && $('comparison-mode').value === 'rows'
       ? [{ label: 'Use Group & sum', run: useGroupMode }, ...(!$('extra-keys-details').hidden ? [{ label: 'Add key columns', run: showExtraKeys }] : [])]
       : [];
     setError(readError(error), actions, 'focus');
@@ -1800,7 +1938,9 @@ function download(content, name, type) {
 // Name downloads after the compared files so several reports can sit side by side.
 function exportName(kind, extension) {
   if (isSample) return `rowglass-${kind}.${extension}`;
-  const stem = name => name.replace(/\.[^.]+$/, '').normalize('NFC').replace(/[^\p{L}\p{N}._-]+/gu, '-').replace(/^[-.]+|[-.]+$/g, '').slice(0, 40) || 'file';
+  // Keep letters with their combining marks, cut by code point, then trim separators.
+  const stem = name => Array.from(name.replace(/\.[^.]+$/, '').normalize('NFC').replace(/[^\p{L}\p{M}\p{N}._-]+/gu, '-'))
+    .slice(0, 40).join('').replace(/^[\p{M}.-]+|[.-]+$/gu, '') || 'file';
   return `rowglass-${stem(report.beforeName)}-vs-${stem(report.afterName)}-${kind}.${extension}`;
 }
 async function copyText(text) {
@@ -1808,6 +1948,7 @@ async function copyText(text) {
     await navigator.clipboard.writeText(text);
     return true;
   } catch {
+    const previous = document.activeElement;
     const area = element('textarea');
     area.value = text;
     area.setAttribute('readonly', '');
@@ -1818,6 +1959,7 @@ async function copyText(text) {
     let copied = false;
     try { copied = document.execCommand('copy'); } catch { copied = false; }
     area.remove();
+    if (previous instanceof HTMLElement && previous.isConnected) previous.focus({ preventScroll: true });
     return copied;
   }
 }
@@ -1840,7 +1982,7 @@ function cleanExport() {
     const option = element('option', 'Choose files first'); option.value = '';
     get(id).replaceChildren(option); get(id).disabled = true;
   }
-  for (const [id, value] of [['delimiter', 'auto'], ['encoding', 'utf-8'], ['row-sort', 'impact'], ['comparison-mode', 'rows']]) {
+  for (const [id, value] of [['delimiter', 'auto'], ['before-encoding', 'utf-8'], ['after-encoding', 'utf-8'], ['row-sort', 'impact'], ['comparison-mode', 'rows']]) {
     for (const option of get(id).options) {
       option.selected = option.value === value;
       if (option.selected) option.setAttribute('selected', ''); else option.removeAttribute('selected');
@@ -1864,13 +2006,15 @@ function cleanExport() {
   get('error').hidden = true;
   get('error-actions').hidden = true;
   get('drop-overlay').hidden = true;
+  get('pair-note').hidden = true;
+  get('mapping-check').classList.remove('has-error-actions');
   get('toast').hidden = true;
   get('toast').classList.remove('is-visible');
   get('calculation-details').removeAttribute('open');
   // Remove every dynamic editor/detail value, including unselected source cells.
   // Clear rendered report blocks too; the saved state reconstructs them on open.
   for (const id of [
-    'key-preview', 'value-preview', 'error-text', 'error-actions', 'mapping-check', 'file-status', 'detail-key', 'detail-status', 'detail-values', 'detail-note', 'toast',
+    'key-preview', 'value-preview', 'error-text', 'error-actions', 'mapping-check', 'pair-note', 'file-status', 'detail-key', 'detail-status', 'detail-values', 'detail-note', 'toast',
     'report-kind', 'report-title', 'summary-description', 'before-name', 'after-name', 'report-source',
     'total-before', 'total-after', 'total-delta', 'count-before', 'count-after', 'percent-change', 'metric-label', 'key-summary', 'row-change-count',
     'added-total', 'added-count', 'removed-total', 'removed-count', 'changed-total', 'changed-count',

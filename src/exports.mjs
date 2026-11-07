@@ -159,8 +159,11 @@ export function renderMarkdown(report) {
     '| --- | ---: | ---: |',
     ...['added', 'removed', 'changed'].map(status =>
       '| ' + status + ' | ' + rowglassExportCount(report.counts[status]) + ' | ' + rowglassExportDecimal(report.totals[status]) + ' |'),
-    ...directions.map(direction => '| changed: ' + direction.name + ' | ' + rowglassExportCount(direction.count) + ' | ' + direction.total + ' |'),
     '| unchanged | ' + rowglassExportCount(report.counts.unchanged) + ' | 0 |',
+    '',
+    '| Changed values by direction | ' + (grouped ? 'Groups' : 'Rows') + ' | Contribution to difference |',
+    '| --- | ---: | ---: |',
+    ...directions.map(direction => '| ' + direction.name + ' | ' + rowglassExportCount(direction.count) + ' | ' + direction.total + ' |'),
     '',
     '| Population | Before | After |',
     '| --- | ---: | ---: |',

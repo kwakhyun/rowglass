@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import {
   parseCSV, reconcile, formatDecimal, MAX_ROWS, MAX_TEXT_BYTES,
@@ -276,7 +277,28 @@ test('text decoding is strict and reads Korean Excel (EUC-KR / CP949) exports ex
   for (const encoding of ['latin1', 'utf8', '', null]) assert.throws(() => decodeText(korean, encoding), /Unsupported text encoding/);
 });
 
-test('delimiter detection reads only the header record and ignores quoted separators', () => {
+test('EUC-KR decoding covers the whole CP949 table, not only KS X 1001', () => {
+  // Extended Hangul and symbols that ICU's plain EUC-KR converter rejects or changes.
+  const samples = [[[0x8c, 0x63], '똠'], [[0x81, 0x41], '갂'], [[0xc1, 0x64], '햏'], [[0x94, 0xee], '뷁'], [[0xa2, 0xe6], '€'], [[0xa2, 0xe7], '®'], [[0xb0, 0xa1], '가']];
+  for (const [bytes, text] of samples) assert.equal(decodeText(Uint8Array.from(bytes), 'euc-kr'), text);
+  assert.equal(decodeText(Uint8Array.of(0x61, 0x8c, 0x63, 0x2c, 0x31).buffer, 'euc-kr'), 'a똠,1', 'ArrayBuffer input works too.');
+  for (const bytes of [[0x80], [0xff], [0x8c], [0xc9, 0xa1], [0xfe, 0xa1], [0xc7, 0x41], [0x81, 0x5b], [0xc6, 0x53], [0xef, 0xbb, 0xbf, 0x61]]) {
+    assert.throws(() => decodeText(Uint8Array.from(bytes), 'euc-kr'), /EUC-KR/, bytes.join(','));
+  }
+  assert.throws(() => decodeText(Buffer.from('\uFEFFa', 'utf8'), 'euc-kr'), /byte order mark/);
+  // Every two-byte sequence, hashed, matches the WHATWG index as decoded by Chromium.
+  const cells = [];
+  for (let lead = 0x81; lead <= 0xfe; lead += 1) {
+    for (let trail = 0x41; trail <= 0xfe; trail += 1) {
+      try { cells.push(decodeText(Uint8Array.of(lead, trail), 'euc-kr')); } catch { cells.push(''); }
+    }
+  }
+  assert.equal(cells.filter(Boolean).length, 17048);
+  assert.equal(new Set(cells.filter(cell => cell >= '\uac00' && cell <= '\ud7a3')).size, 11172);
+  assert.equal(createHash('sha256').update(cells.join('|')).digest('hex'), 'e1ba55e7d9672fb3c1a3323902a83f0434301b5317c37b6b4dda28da2fabedcf');
+});
+
+test('delimiter detection checks the header against the first records and ignores quoted separators', () => {
   assert.equal(detectDelimiter('account;amount\nA;1,5'), ';');
   assert.equal(detectDelimiter('account\tamount\nA\t1'), '\t');
   assert.equal(detectDelimiter('\uFEFF\r\n\naccount,amount;x\n'), ',');
@@ -285,6 +307,13 @@ test('delimiter detection reads only the header record and ignores quoted separa
   assert.equal(detectDelimiter('a,b;c\n'), ',', 'Ties keep the comma default.');
   assert.equal(detectDelimiter('account'), ',');
   assert.equal(detectDelimiter(''), ',');
+  // A separator that splits every sampled record like the header beats header counts alone.
+  assert.equal(detectDelimiter('account,Amount (KRW; net; VAT excl.)\nA,100\nB,200\n'), ',');
+  assert.equal(detectDelimiter('id,note,amount\n1,a;b,5\n'), ',');
+  assert.equal(detectDelimiter('name\tamount\nKim, Lee\t5\n'), '\t');
+  assert.equal(detectDelimiter('a;b;c,d\r\n1;2;3,4\r\n\r\n5;6;7,8'), ';');
+  assert.equal(detectDelimiter('a;b\n"x\ny";1\n'), ';', 'Quoted line breaks stay inside a record.');
+  assert.equal(detectDelimiter('a,b;c;d\n1;2\n3,4;5;6'), ';', 'Without a consistent candidate, header counts decide.');
   assert.throws(() => detectDelimiter(null), /string/);
 });
 
@@ -299,6 +328,10 @@ test('input errors name the offending value and count every problem in the file'
   assert.throws(() => reconcile(csv('account,amount\n ,1\n,2'), empty), /record 2 has a blank key\. 1 more record has a blank key\./);
   const long = 'x'.repeat(80);
   assert.throws(() => reconcile({ headers: ['account', 'amount'], rows: [['a', long]] }, empty), new RegExp(`found "${'x'.repeat(39)}…"`));
+  // Control, bidi, and invisible characters from cells are shown as escapes, and truncation keeps whole characters.
+  assert.throws(() => reconcile(csv('account,amount\na,1\u009b2\u202e'), empty), (error) => error.message.includes('found "1\\u009b2\\u202e"') && !/[\u009b\u202e]/.test(error.message));
+  assert.throws(() => reconcile(csv('account,amount\n"a\u202e",1\n"a\u202e",2'), empty), /duplicate key \["a\\u202e"\]/);
+  assert.throws(() => reconcile({ headers: ['account', 'amount'], rows: [['a', `${'x'.repeat(38)}😀😀😀`]] }, empty), new RegExp(`found "${'x'.repeat(38)}😀…"`));
 });
 
 test('mapping inspection previews the same checks without throwing for data problems', () => {
@@ -318,6 +351,7 @@ test('mapping inspection previews the same checks without throwing for data prob
   assert.deepEqual(inspectMapping(dataset, { keys: ['missing'], value: 'total' }).missing, ['missing', 'total']);
   assert.throws(() => inspectMapping(dataset, { keys: [], value: 'amount' }), /key columns/);
   assert.throws(() => inspectMapping(null, { keys: ['account'], value: 'amount' }), /parsed CSV/);
+  assert.throws(() => inspectMapping({ headers: ['account', 'amount'], rows: [['a']] }, { keys: ['account'], value: 'amount' }), /record 2 must have 2 string fields/);
 });
 
 test('exact decimal checks match the comparison rules', () => {

@@ -107,7 +107,7 @@ test('generated time is validated and only stored for real comparisons', async (
   assert.equal(embeddedState(await renderApp(report, { generatedAt: when })).generatedAt, when);
   assert.equal(embeddedState(await renderApp(report, { sample: true, generatedAt: when })).generatedAt, null);
   assert.equal(embeddedState(await renderApp()).generatedAt, null);
-  for (const generatedAt of ['yesterday', 0, {}]) {
+  for (const generatedAt of ['yesterday', 0, {}, '1', 'Nov 7', '2026-11-07', '2026-13-40T00:00:00.000Z']) {
     await assert.rejects(() => renderApp(report, { generatedAt }), /ISO date/);
   }
 });

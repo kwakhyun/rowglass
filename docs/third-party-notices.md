@@ -75,3 +75,8 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
+## WHATWG Encoding Standard euc-kr index
+
+`src/euc-kr.mjs` contains the `index-euc-kr` mapping from the [WHATWG Encoding Standard](https://encoding.spec.whatwg.org/), stored as KS X 1001 rows plus the rule that places the remaining Hangul syllables. Node.js uses it to decode EUC-KR (CP949) input; generated HTML does not include it, because browsers implement the same decoder natively. The table was produced from Chromium's `TextDecoder('euc-kr')` and matches it, and Python's `cp949` codec, for all 23,940 two-byte sequences; `test/engine.test.mjs` checks a hash of every mapping.
+
+Copyright © WHATWG (Apple, Google, Mozilla, Microsoft). The Encoding Standard is licensed under a [Creative Commons Attribution 4.0 International License](https://creativecommons.org/licenses/by/4.0/).

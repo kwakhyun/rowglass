@@ -150,6 +150,9 @@ test('strict argument validation never creates an output', async t => {
     [...compare, '--delimiter', 'pipe'],
     [...compare, '--encoding', 'latin1'],
     [...compare, '--encoding', 'utf-8', '--encoding', 'euc-kr'],
+    [...compare, '--encoding', 'cp949'],
+    [...compare, '--encoding', 'euc-kr,'],
+    [...compare, '--encoding', 'euc-kr,utf-8,utf-8'],
     ['app', '--out', 'report.html', '--encoding', 'euc-kr'],
     ['app', '--json', 'report.json'],
     ['before.csv', 'after.csv', '--key', 'account', '--value', 'amount'],
@@ -376,7 +379,7 @@ test('Korean Excel exports need an explicit EUC-KR encoding', async t => {
   const args = ['before.csv', 'after.csv', '--key', '고객', '--value', '매출', '--json', 'report.json'];
   const refused = run(args, dir);
   assert.equal(refused.status, 1);
-  assert.match(refused.stderr, /UTF-8.*--encoding euc-kr/);
+  assert.match(refused.stderr, /Before input must be valid UTF-8: before\.csv\. After input must be valid UTF-8: after\.csv\..*Try --encoding euc-kr\.\n$/);
   assert.equal(existsSync(join(dir, 'report.json')), false);
   const result = run([...args, '--encoding', 'euc-kr'], dir);
   assert.equal(result.status, 0, result.stderr);
@@ -385,7 +388,22 @@ test('Korean Excel exports need an explicit EUC-KR encoding', async t => {
   await writeFile(join(dir, 'before.csv'), Buffer.from([0x61, 0xff, 0xff]));
   const invalid = run([...args, '--encoding', 'euc-kr', '--force'], dir);
   assert.equal(invalid.status, 1);
-  assert.match(invalid.stderr, /EUC-KR/);
+  assert.match(invalid.stderr, /Before input must be valid EUC-KR \(CP949\): before\.csv\..*Try --encoding utf-8,euc-kr\./);
+});
+
+test('each input can use its own encoding, and a UTF-8 BOM is never read as EUC-KR', async t => {
+  const dir = await fixture(t);
+  // CP949 "고객,매출" with 똠 (0x8C63), an extended syllable outside KS X 1001.
+  await writeFile(join(dir, 'before.csv'), Buffer.from([0xb0, 0xed, 0xb0, 0xb4, 0x2c, 0xb8, 0xc5, 0xc3, 0xe2, 0x0a, 0x8c, 0x63, 0x2c, 0x31, 0x0a]));
+  await writeFile(join(dir, 'after.csv'), '\uFEFF고객,매출\n똠,4\n'); // Excel "CSV UTF-8"
+  const args = ['before.csv', 'after.csv', '--key', '고객', '--value', '매출', '--json', 'report.json'];
+  const both = run([...args, '--encoding', 'euc-kr'], dir);
+  assert.equal(both.status, 1);
+  assert.match(both.stderr, /After input starts with a UTF-8 byte order mark, so it is UTF-8, not EUC-KR: after\.csv\..*Try --encoding euc-kr,utf-8\./);
+  const result = run([...args, '--encoding', 'EUC-KR,utf-8'], dir);
+  assert.equal(result.status, 0, result.stderr);
+  const report = JSON.parse(await readFile(join(dir, 'report.json'), 'utf8'));
+  assert.deepEqual(report.rows, [{ key: ['똠'], before: '1', after: '4', delta: '3', status: 'changed' }]);
 });
 
 test('semicolon and automatically detected separators are supported', async t => {
@@ -393,13 +411,22 @@ test('semicolon and automatically detected separators are supported', async t =>
   await writeFile(join(dir, 'before.csv'), 'account;amount\nalpha;1.10\nbeta;2\n');
   await writeFile(join(dir, 'after.csv'), 'account\tamount\nalpha\t1.30\nbeta\t2\n');
   const base = ['before.csv', 'after.csv', '--key', 'account', '--value', 'amount', '--json', 'report.json', '--force'];
-  assert.equal(run([...base, '--delimiter', 'semicolon'], dir).status, 1, 'One explicit separator applies to both files.');
+  const explicit = run([...base, '--delimiter', 'semicolon'], dir);
+  assert.equal(explicit.status, 1, 'One explicit separator applies to both files.');
+  assert.match(explicit.stderr, /After CSV after\.csv has one column when read as semicolon-separated, but its header looks tab-separated\. Add --delimiter tab or --delimiter auto\./);
   const auto = run([...base, '--delimiter', 'auto'], dir);
   assert.equal(auto.status, 0, auto.stderr);
+  assert.match(auto.stdout, /^Separators: before semicolon, after tab \(detected\)\.$/m);
   const report = JSON.parse(await readFile(join(dir, 'report.json'), 'utf8'));
   assert.equal(report.totals.delta, '0.20');
   await writeFile(join(dir, 'after.csv'), 'account;amount\nalpha;1.30\nbeta;2\n');
-  assert.equal(run([...base, '--delimiter', 'semicolon'], dir).status, 0);
+  const semicolon = run([...base, '--delimiter', 'semicolon'], dir);
+  assert.equal(semicolon.status, 0, semicolon.stderr);
+  assert.doesNotMatch(semicolon.stdout, /Separators/, 'Only detected separators are reported.');
+  await writeFile(join(dir, 'after.csv'), 'account;amount\nalpha;1,30\n');
+  const parse = run(base, dir);
+  assert.equal(parse.status, 1);
+  assert.match(parse.stderr, /After CSV after\.csv \(read as comma-separated\): CSV record 2 has 2 fields; expected 1\. Check --delimiter\./);
 });
 
 test('comparisons can write only data outputs, and HTML reports record when they were made', async t => {

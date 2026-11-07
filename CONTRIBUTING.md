@@ -22,10 +22,11 @@ node bin/rowglass.mjs demo --out demo.html --force
 
 | File | Responsibility |
 | --- | --- |
-| `src/engine.mjs` | Strict CSV parsing, key matching, exact decimal arithmetic, and the report schema. Shared by Node.js and the browser. |
+| `src/engine.mjs` | Strict text decoding, separator detection, CSV parsing, mapping checks, key matching, exact decimal arithmetic, the report schema, and movement and similar-key summaries. Shared by Node.js and the browser. |
+| `src/euc-kr.mjs` | WHATWG euc-kr (CP949) table and decoder for Node.js, whose built-in converter covers only KS X 1001. Generated data; the HTML build replaces its import because browsers decode euc-kr natively. |
 | `src/exports.mjs` | Safe changed-result CSV and Markdown summaries, shared by the browser and CLI. |
 | `src/render.mjs` | Builds a standalone HTML document with the engine, UI, CSS, and initial report embedded. |
-| `src/ui.mjs` | File selection, report rendering, filtering, row inspection, and downloads. |
+| `src/ui.mjs` | File selection and drag and drop, separator and per-file encoding options, live column checks, report rendering, filtering, row inspection, downloads, and Markdown copy. |
 | `src/ui.css` | Browser layout and styles. |
 | `bin/rowglass.mjs` | CLI validation, local file reads, protected output writing, and exit codes. |
 | `test/` | Node.js engine and CLI integration tests. |
@@ -34,7 +35,7 @@ node bin/rowglass.mjs demo --out demo.html --force
 ## Keep the result checkable
 
 - Preserve exact decimal arithmetic. Totals, differences, and serialized values must not pass through floating-point arithmetic. Approximate chart geometry is separate from exact labels and values.
-- Keep key matching explicit. Only explicitly selected group mode may sum duplicate keys. Never silently merge duplicate keys, trim identifiers, guess currencies, drop invalid rows, or turn missing values into zero. Hints such as the similar-key notice may point out likely typos but must not change matching. Separator detection must stay visible and overridable; text encodings are chosen explicitly, never guessed.
+- Keep key matching explicit. Only explicitly selected group mode may sum duplicate keys. Never silently merge duplicate keys, trim identifiers, guess currencies, drop invalid rows, or turn missing values into zero. Hints such as the similar-key notice may point out likely typos but must not change matching. Separator detection must stay visible and overridable; text encodings are chosen explicitly for each file, never guessed. Messages quote source text through the engine's quoting helpers, and the UI classifies errors without that quoted text.
 - Keep the comparison scoped to one metric. “Changed” means the matched metric or explicitly selected group sum changed numerically; edits to other cells do not change that status.
 - Preserve local operation. The generated file must work without a server or network requests, and changes must not add telemetry.
 - Treat CSV values and filenames as data when rendering. Use text nodes and safely escaped JSON rather than inserting input as markup.
@@ -47,7 +48,7 @@ For a feature request, explain the current task it would make easier and show a 
 Run `npm test`. For a browser change, also rebuild and open the generated HTML, then check the affected flow:
 
 1. Load the example and confirm `128,000 + 21,000 − 8,000 + 400 = 141,400`.
-2. Choose two files, select the key and metric, and compare. Check a duplicate-key or invalid-number error if input handling changed: the live column check and the error message should both name the record and value. For encoding changes, try a CP949 file with **Read as Korean (EUC-KR)**.
+2. Choose two files, select the key and metric, and compare. Check a duplicate-key or invalid-number error if input handling changed: the live column check and the error message should both name the record and value. For encoding changes, try a CP949 file with **Read the before file as Korean (EUC-KR)**, and a pair where only one file is EUC-KR.
 3. Filter or search rows, open row details, and use the keyboard for the controls you changed.
 4. Save the report, reopen it, and verify the same totals and rows. Check JSON, changed CSV, and Markdown exports when the report schema changed. Confirm group source counts and any offsetting changes are described accurately.
 5. Check a narrow viewport when layout changed.
