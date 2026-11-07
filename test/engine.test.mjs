@@ -331,6 +331,7 @@ test('input errors name the offending value and count every problem in the file'
   // Control, bidi, and invisible characters from cells are shown as escapes, and truncation keeps whole characters.
   assert.throws(() => reconcile(csv('account,amount\na,1\u009b2\u202e'), empty), (error) => error.message.includes('found "1\\u009b2\\u202e"') && !/[\u009b\u202e]/.test(error.message));
   assert.throws(() => reconcile(csv('account,amount\n"a\u202e",1\n"a\u202e",2'), empty), /duplicate key \["a\\u202e"\]/);
+  assert.throws(() => reconcile(csv('account,amount\na,1\u061c\u{E0041}\u00ad\u3164'), empty), (error) => error.message.includes('found "1\\u061c\\udb40\\udc41\\u00ad\\u3164"'));
   assert.throws(() => reconcile({ headers: ['account', 'amount'], rows: [['a', `${'x'.repeat(38)}😀😀😀`]] }, empty), new RegExp(`found "${'x'.repeat(38)}😀…"`));
 });
 

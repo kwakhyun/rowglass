@@ -51,8 +51,8 @@ function rowglassExportCSVCell(value, untrusted = false) {
 function rowglassExportMarkdownCell(value) {
   const escaped = JSON.stringify(String(value))
     .replace(/\|/g, '\\u007c')
-    .replace(/[\u007f-\u009f\u200b-\u200f\u2028-\u202e\u2060-\u206f\ufeff]/gu,
-      char => '\\u' + char.charCodeAt(0).toString(16).padStart(4, '0'));
+    .replace(/[\p{Cc}\p{Cf}\p{Zl}\p{Zp}\u115f\u1160\u3164\uffa0]/gu,
+      char => Array.from({ length: char.length }, (_, index) => '\\u' + char.charCodeAt(index).toString(16).padStart(4, '0')).join(''));
   let run = 0, longest = 0;
   for (const char of escaped) {
     run = char === '\u0060' ? run + 1 : 0;

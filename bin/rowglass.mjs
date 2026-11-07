@@ -176,25 +176,50 @@ async function readInput(path) {
   }
 }
 
-// Decode every input before reporting, so the advice covers both files at once.
+// Decode every input before reporting, so the advice covers both files at once. An encoding
+// is only suggested after it decodes the bytes, so the advice never sends users in a circle.
 function decodeInputs(inputs, encodings) {
   const problems = [];
   const advised = [...encodings];
+  const unreadable = [];
   inputs.forEach((input, index) => {
     try {
       input.text = decodeText(input.bytes, encodings[index]);
     } catch (error) {
-      advised[index] = encodings[index] === 'utf-8' ? 'euc-kr' : 'utf-8';
-      const problem = encodings[index] === 'utf-8' ? 'must be valid UTF-8'
-        : /byte order mark/.test(error.message) ? 'starts with a UTF-8 byte order mark, so it is UTF-8, not EUC-KR'
-          : 'must be valid EUC-KR (CP949)';
+      const other = encodings[index] === 'utf-8' ? 'euc-kr' : 'utf-8';
+      let works = true;
+      try { decodeText(input.bytes, other); } catch { works = false; }
+      const utf16 = (input.bytes[0] === 0xff && input.bytes[1] === 0xfe) || (input.bytes[0] === 0xfe && input.bytes[1] === 0xff);
+      if (works) advised[index] = other;
+      else unreadable.push(SIDES[index].toLowerCase());
+      const problem = !works ? `is neither valid UTF-8 nor EUC-KR (CP949)${utf16 ? '; it looks like UTF-16 text' : ''}`
+        : encodings[index] === 'utf-8' ? 'must be valid UTF-8'
+          : /byte order mark/.test(error.message) ? 'starts with a UTF-8 byte order mark, so it is UTF-8, not EUC-KR'
+            : 'must be valid EUC-KR (CP949)';
       problems.push(`${SIDES[index]} input ${problem}: ${input.given}.`);
     }
     input.bytes = null;
   });
   if (!problems.length) return;
-  const korean = advised.includes('euc-kr') ? ' CSV files saved by Korean editions of Excel are EUC-KR (CP949).' : '';
-  fail(`${problems.join(' ')}${korean} Try --encoding ${advised[0] === advised[1] ? advised[0] : advised.join(',')}.`);
+  const changed = advised.some((encoding, index) => encoding !== encodings[index]);
+  const korean = advised.some((encoding, index) => encoding === 'euc-kr' && encodings[index] !== 'euc-kr') ? ' CSV files saved by Korean editions of Excel are EUC-KR (CP949).' : '';
+  const retry = changed ? ` Try --encoding ${advised[0] === advised[1] ? advised[0] : advised.join(',')}.` : '';
+  const export_ = unreadable.length ? ` Re-save the ${unreadable.join(' and ')} ${unreadable.length === 2 ? 'files' : 'file'} as UTF-8 CSV (Excel: “CSV UTF-8”).` : '';
+  fail(`${problems.join(' ')}${korean}${retry}${export_}`);
+}
+
+// Whether the header record contains this separator outside quotes.
+function headerSplits(text, delimiter) {
+  let quoted = false;
+  let position = text.charCodeAt(0) === 0xfeff ? 1 : 0;
+  while (text[position] === '\r' || text[position] === '\n') position += 1;
+  for (; position < text.length; position += 1) {
+    const char = text[position];
+    if (char === '"') quoted = !quoted;
+    else if (!quoted && (char === '\r' || char === '\n')) return false;
+    else if (!quoted && char === delimiter) return true;
+  }
+  return false;
 }
 
 function sameFile(first, second) {
@@ -280,11 +305,17 @@ async function main() {
         afterName: basename(inputs[1].path),
       });
     } catch (error) {
-      // A single parsed column usually means the file uses another separator.
-      const mismatch = inputs.findIndex((input, index) => datasets[index].headers.length === 1 && detectDelimiter(input.text) !== input.delimiter);
+      // A single parsed column usually means the file uses another separator. Detection defaults
+      // to comma, so a separator only counts when the header really contains it.
+      const candidates = inputs.map(input => {
+        const candidate = detectDelimiter(input.text);
+        return headerSplits(input.text, candidate) ? candidate : null;
+      });
+      const mismatch = inputs.findIndex((input, index) => datasets[index].headers.length === 1 && candidates[index] && candidates[index] !== input.delimiter);
       if (mismatch < 0 || !/missing column/.test(error.message)) throw error;
-      const detected = DELIMITER_NAMES.get(detectDelimiter(inputs[mismatch].text));
-      fail(`${error.message} ${SIDES[mismatch]} CSV ${basename(inputs[mismatch].path)} has one column when read as ${DELIMITER_NAMES.get(inputs[mismatch].delimiter)}-separated, but its header looks ${detected}-separated. Add --delimiter ${detected} or --delimiter auto.`);
+      const detected = DELIMITER_NAMES.get(candidates[mismatch]);
+      const differ = new Set(candidates.filter(Boolean)).size > 1;
+      fail(`${error.message} ${SIDES[mismatch]} CSV ${basename(inputs[mismatch].path)} has one column when read as ${DELIMITER_NAMES.get(inputs[mismatch].delimiter)}-separated, but its header looks ${detected}-separated. ${differ ? 'The inputs use different separators, so add --delimiter auto.' : `Add --delimiter ${detected} or --delimiter auto.`}`);
     }
   }
   for (const output of outputs) {

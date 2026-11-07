@@ -32,7 +32,7 @@ dialog{border:0;padding:30px;border-radius:24px;color:var(--ink);background:#fff
 /* Input checks, error actions, and page-level drops */
 .error-message p{white-space:pre-line}
 .error-actions,.check-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
-.error-actions .button,.check-actions .button{min-height:36px;padding:7px 12px;font-size:12px}
+.error-actions .button,.check-actions .button{min-height:36px;max-width:100%;padding:7px 12px;font-size:12px;white-space:normal;text-align:left}
 .format-grid{display:flex;flex-wrap:wrap;gap:14px 18px}
 .format-grid select{width:220px;max-width:100%}
 .mapping-check{display:grid;gap:8px;margin-top:16px}
@@ -66,6 +66,7 @@ dialog{border:0;padding:30px;border-radius:24px;color:var(--ink);background:#fff
 .drivers-summary{margin:-4px 0 14px;color:var(--muted);font-size:13px;line-height:1.6;overflow-wrap:anywhere}
 .axis-note{margin-top:2px}
 @media(max-width:600px){
+.comparison-dialog{scroll-padding-block:72px 160px}
 .filters{flex-wrap:wrap;overflow:visible}
 .table-controls{width:100%;flex-wrap:wrap}
 .search-wrap,.sort-control,.sort-control select{flex:1 1 100%;width:100%}

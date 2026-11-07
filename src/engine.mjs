@@ -218,8 +218,8 @@ const ISSUE_EXAMPLES = 3;
 // Quote source text for messages. Control, bidi, and invisible format
 // characters become visible escapes, so a cell cannot restyle a terminal.
 function quoteText(value) {
-  return JSON.stringify(value).replace(/[\u007f-\u009f\u200b-\u200f\u2028-\u202e\u2060-\u206f\ufeff]/gu,
-    (char) => '\\u' + char.charCodeAt(0).toString(16).padStart(4, '0'));
+  return JSON.stringify(value).replace(/[\p{Cc}\p{Cf}\p{Zl}\p{Zp}\u115f\u1160\u3164\uffa0]/gu,
+    (char) => Array.from({ length: char.length }, (_, index) => `\\u${char.charCodeAt(index).toString(16).padStart(4, '0')}`).join(''));
 }
 
 function quoteCell(value) {

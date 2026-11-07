@@ -385,10 +385,20 @@ test('Korean Excel exports need an explicit EUC-KR encoding', async t => {
   assert.equal(result.status, 0, result.stderr);
   const report = JSON.parse(await readFile(join(dir, 'report.json'), 'utf8'));
   assert.deepEqual(report.rows[0], { key: ['가'], before: '1', after: '3', delta: '2', status: 'changed' });
-  await writeFile(join(dir, 'before.csv'), Buffer.from([0x61, 0xff, 0xff]));
+  // UTF-8 Korean text fails EUC-KR at its continuation bytes; the advice reads only that file as UTF-8.
+  await writeFile(join(dir, 'before.csv'), '고객,매출\n가,1\n');
   const invalid = run([...args, '--encoding', 'euc-kr', '--force'], dir);
   assert.equal(invalid.status, 1);
-  assert.match(invalid.stderr, /Before input must be valid EUC-KR \(CP949\): before\.csv\..*Try --encoding utf-8,euc-kr\./);
+  assert.match(invalid.stderr, /Before input must be valid EUC-KR \(CP949\): before\.csv\. Try --encoding utf-8,euc-kr\.\n$/);
+  // Bytes that neither encoding reads get no encoding advice that would loop.
+  await writeFile(join(dir, 'before.csv'), Buffer.concat([Buffer.from([0xff, 0xfe]), Buffer.from('고객,매출\n가,1\n', 'utf16le')]));
+  const neither = run([...args, '--encoding', 'euc-kr', '--force'], dir);
+  assert.equal(neither.status, 1);
+  assert.match(neither.stderr, /Before input is neither valid UTF-8 nor EUC-KR \(CP949\); it looks like UTF-16 text: before\.csv\. Re-save the before file as UTF-8 CSV/);
+  assert.doesNotMatch(neither.stderr, /Try --encoding/);
+  // With UTF-8 for both, only the CP949 after file gets a different encoding.
+  const mixed = run([...args, '--force'], dir);
+  assert.match(mixed.stderr, /After input must be valid UTF-8: after\.csv\..* Try --encoding utf-8,euc-kr\. Re-save the before file as UTF-8 CSV/);
 });
 
 test('each input can use its own encoding, and a UTF-8 BOM is never read as EUC-KR', async t => {
@@ -413,7 +423,7 @@ test('semicolon and automatically detected separators are supported', async t =>
   const base = ['before.csv', 'after.csv', '--key', 'account', '--value', 'amount', '--json', 'report.json', '--force'];
   const explicit = run([...base, '--delimiter', 'semicolon'], dir);
   assert.equal(explicit.status, 1, 'One explicit separator applies to both files.');
-  assert.match(explicit.stderr, /After CSV after\.csv has one column when read as semicolon-separated, but its header looks tab-separated\. Add --delimiter tab or --delimiter auto\./);
+  assert.match(explicit.stderr, /After CSV after\.csv has one column when read as semicolon-separated, but its header looks tab-separated\. The inputs use different separators, so add --delimiter auto\./);
   const auto = run([...base, '--delimiter', 'auto'], dir);
   assert.equal(auto.status, 0, auto.stderr);
   assert.match(auto.stdout, /^Separators: before semicolon, after tab \(detected\)\.$/m);
@@ -427,6 +437,15 @@ test('semicolon and automatically detected separators are supported', async t =>
   const parse = run(base, dir);
   assert.equal(parse.status, 1);
   assert.match(parse.stderr, /After CSV after\.csv \(read as comma-separated\): CSV record 2 has 2 fields; expected 1\. Check --delimiter\./);
+  await writeFile(join(dir, 'after.csv'), 'account;amount\nalpha;1.30\n');
+  const same = run(base, dir);
+  assert.equal(same.status, 1);
+  assert.match(same.stderr, /Before CSV before\.csv has one column when read as comma-separated, but its header looks semicolon-separated\. Add --delimiter semicolon or --delimiter auto\./);
+  // A header without any candidate separator is not reported as comma-separated.
+  await writeFile(join(dir, 'before.csv'), 'account\nalpha\n');
+  const none = run([...base, '--delimiter', 'semicolon'], dir);
+  assert.equal(none.status, 1);
+  assert.match(none.stderr, /Before CSV is missing column "amount"\.\n$/);
 });
 
 test('comparisons can write only data outputs, and HTML reports record when they were made', async t => {

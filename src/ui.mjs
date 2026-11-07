@@ -608,7 +608,10 @@ function setMapping(previousKeys, previousValue) {
   const missingKeys = previousKeys.some(key => !common.includes(key));
   const keyPattern = /^(id|account|customer|client|name|key|code|sku|계정|고객|고객명|거래처|이름|코드|품목)$/i;
   // Identifier names such as order_id, Invoice No, or 거래처코드 are often numeric, so check them before text columns.
-  const idPattern = header => /(^|[_\s.-])(id|no|num|number|code|key|sku)$|(번호|코드|아이디)$/i.test(header) || /[a-z](Id|ID)$/.test(header);
+  // Row-sequence columns (No, 번호, Line No) only number the rows, so matching on them pairs rows by position.
+  const sequencePattern = /^(#|no|num|number|번호|순번|일련번호|연번|(line|row|seq|serial)[_\s.-]?(#|no|num|number|id))\.?$/i;
+  const idPattern = header => !sequencePattern.test(header.trim())
+    && (/(^|[_\s.-])(id|no|num|number|code|key|sku)$|(번호|코드|아이디)$/i.test(header) || /[a-z](Id|ID)$/.test(header));
   const valuePattern = /^(amount|revenue|sales|cost|total|value|usage|price|금액|매출|비용|합계|사용량)$/i;
   $('key-select').value = missingKeys ? ''
     : previousKeys[0] || common.find(header => keyPattern.test(header)) || common.find(idPattern)
@@ -701,34 +704,51 @@ function renderMappingCheck() {
 function readError(error) {
   const raw = error instanceof Error ? error.message : String(error);
   const shape = errorShape(raw);
-  const hint = /not valid UTF-8/i.test(shape)
-    ? 'Files saved as “CSV” by Korean Excel use EUC-KR: read this file as Korean, or re-export it as “CSV UTF-8”.'
-    : /byte order mark/.test(shape)
-      ? 'Read this file as UTF-8.'
-      : /not valid EUC-KR/i.test(shape)
-        ? 'Read this file as UTF-8, or re-export it.'
-        : /20 MiB|100,000 row/.test(shape)
-          ? 'Use a smaller export within the file and row limits.'
-          : /decimal|integer digit|decimal place/.test(shape)
-            ? 'Choose a numeric column without blanks, currency symbols, separators, or surrounding spaces.'
-            : /blank key/.test(shape)
-              ? 'Fill in the blank keys in the source file; neither extra key columns nor Group & sum accept blank keys.'
-              : /duplicate key/.test(shape)
-                ? 'Add key columns to identify rows uniquely, or explicitly choose Group & sum to compare totals.'
-                : /fields; expected/.test(shape)
-                  ? 'Check the column separator under File format and limits.'
-                  : /must contain a header row/.test(shape)
-                    ? 'The file is empty. Choose the exported CSV file.'
-                    : /empty header|duplicate header/.test(shape)
-                      ? 'Give every column in the header row a unique, non-empty name.'
-                      : 'Check the selected columns, file contents, and separator, then try again.';
+  const hints = [
+    [/neither valid UTF-8 nor EUC-KR/, 'Re-export it as UTF-8 CSV (in Excel, “CSV UTF-8”).'],
+    [/not valid UTF-8/i, 'Files saved as “CSV” by Korean Excel use EUC-KR: read this file as Korean, or re-export it as “CSV UTF-8”.'],
+    [/byte order mark/, 'Read this file as UTF-8.'],
+    [/not valid EUC-KR/i, 'Read this file as UTF-8, or re-export it.'],
+    [/20 MiB|100,000 row/, 'Use a smaller export within the file and row limits.'],
+    [/decimal|integer digit|decimal place/, 'Choose a numeric column without blanks, currency symbols, separators, or surrounding spaces.'],
+    [/blank key/, 'Fill in the blank keys in the source file; neither extra key columns nor Group & sum accept blank keys.'],
+    [/duplicate key/, 'Add key columns to identify rows uniquely, or explicitly choose Group & sum to compare totals.'],
+    [/fields; expected/, 'Check the column separator under File format and limits.'],
+    [/must contain a header row/, 'The file is empty. Choose the exported CSV file.'],
+    [/empty header|duplicate header/, 'Give every column in the header row a unique, non-empty name.'],
+  ];
+  const hint = hints.find(([pattern]) => pattern.test(shape))?.[1] ?? 'Check the selected columns, file contents, and separator, then try again.';
   return `${raw} ${hint} The current report is unchanged.`;
+}
+// Whether the header record contains this separator outside quotes.
+function headerSplits(text, delimiter) {
+  let quoted = false;
+  let position = text.charCodeAt(0) === 0xfeff ? 1 : 0;
+  while (text[position] === '\r' || text[position] === '\n') position += 1;
+  for (; position < text.length; position += 1) {
+    const char = text[position];
+    if (char === '"') quoted = !quoted;
+    else if (!quoted && (char === '\r' || char === '\n')) return false;
+    else if (!quoted && char === delimiter) return true;
+  }
+  return false;
 }
 async function readDataset(file, encoding) {
   if (file.size > MAX_TEXT_BYTES) throw new Error('File exceeds the 20 MiB limit.');
   const buffer = await file.arrayBuffer();
   if (buffer.byteLength > MAX_TEXT_BYTES) throw new Error('File exceeds the 20 MiB limit.');
-  return decodeText(buffer, encoding);
+  try {
+    return decodeText(buffer, encoding);
+  } catch (error) {
+    // Offer the other encoding only if it decodes the file, so the fix-it buttons never loop.
+    const other = encoding === 'utf-8' ? 'euc-kr' : 'utf-8';
+    try { decodeText(buffer, other); } catch {
+      const head = new Uint8Array(buffer, 0, Math.min(2, buffer.byteLength));
+      const utf16 = (head[0] === 0xff && head[1] === 0xfe) || (head[0] === 0xfe && head[1] === 0xff);
+      throw new Error(`File is neither valid UTF-8 nor EUC-KR (CP949) text${utf16 ? '; it looks like UTF-16 (Excel “Unicode Text”)' : ''}.`);
+    }
+    throw error;
+  }
 }
 // Fix-it buttons disappear when the files reload, so keep keyboard focus in the dialog.
 async function reloadKeepingFocus() {
@@ -762,7 +782,9 @@ async function loadFiles(note = '') {
     if (!snapshot[side]) return null;
     const text = await readDataset(snapshot[side], encodings[side]);
     const delimiter = choice === 'auto' ? detectDelimiter(text) : choice === 'tab' ? '\t' : choice;
-    return { dataset: parseCSV(text, { delimiter }), delimiter, detected: choice === 'auto' ? delimiter : detectDelimiter(text) };
+    // A separator another file might use, only if the header really contains it (detection defaults to comma).
+    const candidate = detectDelimiter(text);
+    return { dataset: parseCSV(text, { delimiter }), delimiter, candidate: headerSplits(text, candidate) ? candidate : null };
   }));
   if (revision !== loadRevision) return;
   const errors = [], failed = { utf8: [], eucKr: [], fields: false };
@@ -807,14 +829,16 @@ async function loadFiles(note = '') {
       clearMapping();
       // A single column usually means the file uses a different separator.
       const single = sides.filter((side, index) => results[index].value?.dataset.headers.length === 1);
-      if (single.length && choice !== 'auto') {
-        const suggested = [...new Set(single.map(side => results[sides.indexOf(side)].value.detected))];
-        const advice = suggested.length === 1 && suggested[0] !== (choice === 'tab' ? '\t' : choice)
-          ? ` ${single.length === 2 ? 'Their headers look' : 'Its header looks'} ${delimiterNames[suggested[0]]}-separated.` : '';
-        setError(`${error.message} With the ${delimiterNames[choice === 'tab' ? '\t' : choice]} separator, ${which(single)} ${single.length === 2 ? 'have' : 'has'} only one column.${advice} Detect the separator, or choose it under File format and limits. The current report is unchanged.`, [detectSeparatorAction], 'scroll');
+      const chosen = choice === 'tab' ? '\t' : choice;
+      const other = single.filter(side => (results[sides.indexOf(side)].value.candidate ?? chosen) !== chosen);
+      const subject = which(single), verb = single.length === 2 ? 'have' : 'has';
+      if (other.length && choice !== 'auto') {
+        const suggested = [...new Set(other.map(side => results[sides.indexOf(side)].value.candidate))];
+        const advice = suggested.length === 1
+          ? ` ${other.length === 2 ? 'Their headers look' : `The ${other[0]} file’s header looks`} ${delimiterNames[suggested[0]]}-separated.` : '';
+        setError(`${error.message} With the ${delimiterNames[chosen]} separator, ${subject} ${verb} only one column.${advice} Detect the separator, or choose it under File format and limits. The current report is unchanged.`, [detectSeparatorAction], 'scroll');
       } else if (single.length) {
-        const subject = which(single);
-        setError(`${error.message} ${subject[0].toUpperCase()}${subject.slice(1)} ${single.length === 2 ? 'have' : 'has'} only one column, and no comma, tab, or semicolon separator was found. Export ${single.length === 2 ? 'them' : 'it'} with one of these separators. The current report is unchanged.`, [], 'scroll');
+        setError(`${error.message} ${subject[0].toUpperCase()}${subject.slice(1)} ${verb} only one column, and no comma, tab, or semicolon separator was found in ${single.length === 2 ? 'their headers' : 'its header'}. Check that ${single.length === 2 ? 'they are' : 'it is'} the right ${single.length === 2 ? 'files' : 'file'}, or export ${single.length === 2 ? 'them' : 'it'} with one of these separators. The current report is unchanged.`, [], 'scroll');
       } else {
         setError(readError(error), [], 'scroll');
       }
@@ -863,10 +887,11 @@ function acceptFile(side, file) {
   setDirty(true);
   loadFiles();
 }
-// Order two dropped files. Only the part where the names differ counts: before/after,
-// old/new, 전/후 and similar words decide; otherwise names sort with numbers in order.
-const beforeWords = /^(before|old|prev|previous|baseline|last|전)$/i;
-const afterWords = /^(after|new|current|curr|latest|this|후)$/i;
+// Order two dropped files by marker words where their names differ: before/after, old/new,
+// last/current, 전/후 (as in 이전/이후). A marker on one side also decides (data vs data_new).
+// Numbered download copies count as newer; anything else is ordered by name.
+const beforeWords = /^(before|old|older|prev|previous|baseline|last|전)$/i;
+const afterWords = /^(after|new|newer|current|curr|latest|this|후)$/i;
 function orderDroppedPair(a, b) {
   const stem = file => file.name.replace(/\.[^.]+$/, '').normalize('NFC').toLowerCase();
   const [x, y] = [stem(a), stem(b)];
@@ -874,13 +899,26 @@ function orderDroppedPair(a, b) {
   while (start < x.length && start < y.length && x[start] === y[start]) start += 1;
   let end = 0;
   while (end < x.length - start && end < y.length - start && x[x.length - 1 - end] === y[y.length - 1 - end]) end += 1;
+  // Check the differing characters (전/후) and the whole words around them (last_month/current_month).
+  const letter = char => /[\p{L}\p{N}]/u.test(char || '');
+  let wordStart = start, wordEnd = end;
+  while (wordStart > 0 && letter(x[wordStart - 1])) wordStart -= 1;
+  while (wordEnd > 0 && letter(x[x.length - wordEnd])) wordEnd -= 1;
+  const side = text => {
+    const found = new Set(text.split(/[^\p{L}\p{N}]+/u).map(token => beforeWords.test(token) ? 'before' : afterWords.test(token) ? 'after' : '').filter(Boolean));
+    return found.size === 1 ? [...found][0] : '';
+  };
+  for (const [from, to] of [[start, end], [wordStart, wordEnd]]) {
+    const [first, second] = [x.slice(from, x.length - to), y.slice(from, y.length - to)].map(side);
+    if (first === second) continue;
+    if (first === 'before' || second === 'after') return { files: [a, b], rule: 'words' };
+    return { files: [b, a], rule: 'words' };
+  }
   const parts = [x.slice(start, x.length - end), y.slice(start, y.length - end)].map(part => part.replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, ''));
-  if (beforeWords.test(parts[0]) && afterWords.test(parts[1])) return { files: [a, b], rule: 'words' };
-  if (afterWords.test(parts[0]) && beforeWords.test(parts[1])) return { files: [b, a], rule: 'words' };
-  // A repeated browser download such as "export (1).csv" is newer than "export.csv".
   if (!parts[0] && /^\d+$/.test(parts[1])) return { files: [a, b], rule: 'copy' };
   if (!parts[1] && /^\d+$/.test(parts[0])) return { files: [b, a], rule: 'copy' };
-  return { files: [a, b].sort((p, q) => p.name.localeCompare(q.name, undefined, { numeric: true, sensitivity: 'base' })), rule: 'name' };
+  const byName = (p, q) => stem(p).localeCompare(stem(q), undefined, { numeric: true, sensitivity: 'base' }) || p.name.localeCompare(q.name);
+  return { files: [a, b].sort(byName), rule: 'name' };
 }
 // Files dropped anywhere: two files are ordered as above, one fills the first empty side.
 function acceptDroppedFiles(list, side = null) {
