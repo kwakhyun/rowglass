@@ -1,6 +1,25 @@
 # Verification
 
-Updated on 2026-10-30 (Asia/Seoul), after adding explicit grouping and portable exports.
+Updated on 2026-11-07, after the input and report usability changes (encodings, separators, live column checks, increase/decrease split).
+
+## Input and report usability checks (2026-11-07)
+
+`npm test` passed all 79 tests on Linux with Node.js 22.23.4. New tests cover strict UTF-8 and EUC-KR (CP949) decoding, header-based separator detection, error messages that name the offending value and count the remaining problems, mapping inspection, exact increase/decrease and concentration figures, similar-key hints, the Markdown increase/decrease rows, CLI `--encoding`, `--delimiter semicolon|auto`, data-only outputs without `--out`, and the recorded comparison time. `npm run build` and `npm run check:package` passed.
+
+The rebuilt `dist/index.html` was exercised in headless Chromium (Playwright) from a `file://` URL:
+
+- At 1280×800, a duplicate-key comparison now scrolls the error into view, moves focus to it, and offers **Use Group & sum** and **Add key columns**. Before this change the same error rendered below the visible part of the dialog.
+- CP949 files with Korean headers failed as UTF-8 with a **Read as Korean (EUC-KR)** action. One click read both files, selected `고객` and `매출` automatically, and compared them (`+500`).
+- Semicolon files were detected automatically and labeled as such. The live check reported `"1,300.00"` at record 2 before comparing.
+- A report with `"Grove "` removed and `grove` added showed the similar-key notice and a column-difference notice. CSV and HTML downloads were named `rowglass-sim-before-vs-sim-after-…`. **Copy Markdown** put the summary on the clipboard.
+- The downloaded HTML contained `generatedAt`, excluded the unselected `region` values, and reopened with the same total, title, comparison time, and notices.
+- Two synthetic files dropped on the page opened the comparison dialog and were ordered by file name (`2026-01.csv` before `2026-02.csv`). The page overlay appeared while dragging and cleared after the drop.
+- With 100,000-row synthetic files, reading and the first column check took about 0.4 s, re-checking both files after a mode change about 0.1 s, and comparing and rendering about 0.5 s.
+- The example report shows `↑ +8,000.00` and `↓ −7,600.00` under changed values, gross movement `44,600.00`, and a chart axis that starts at `86,000.00` with break marks and a note.
+- At 390 px, filter chips wrap instead of scrolling out of view, and the comparison dialog has no horizontal overflow.
+- No console errors or warnings were reported during these flows.
+
+Drag and drop was simulated with synthetic `DataTransfer` events, not dragged from an operating system file manager. Firefox, Safari, and screen-reader speech were not checked. Hosted CI results for this change are not recorded here.
 
 ## Automated checks
 

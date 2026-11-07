@@ -1,6 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { parseCSV, reconcile, formatDecimal, MAX_ROWS, MAX_TEXT_BYTES } from '../src/engine.mjs';
+import { readFileSync } from 'node:fs';
+import {
+  parseCSV, reconcile, formatDecimal, MAX_ROWS, MAX_TEXT_BYTES,
+  decodeText, detectDelimiter, inspectMapping, isExactDecimal, summarizeMovement, findSimilarKeys,
+} from '../src/engine.mjs';
 
 const csv = (source) => parseCSV(source);
 const compare = (before, after, options) => reconcile(csv(before), csv(after), options);
@@ -261,4 +265,96 @@ test('empty and one-sided group reports retain counts, zero presence, and source
   report.keys.push('extra');
   report.rows[0].key[0] = 'changed';
   assert.equal(JSON.stringify({ before, empty, options }), snapshot);
+});
+
+test('text decoding is strict and reads Korean Excel (EUC-KR / CP949) exports explicitly', () => {
+  const korean = Buffer.from([0xb0, 0xed, 0xb0, 0xb4, 0x2c, 0xb8, 0xc5, 0xc3, 0xe2]); // "고객,매출" in CP949
+  assert.equal(decodeText(korean, 'euc-kr'), '고객,매출');
+  assert.equal(decodeText(Buffer.from('\uFEFFaccount,amount', 'utf8')), 'account,amount');
+  assert.throws(() => decodeText(korean), /not valid UTF-8/);
+  assert.throws(() => decodeText(Buffer.from([0x61, 0xff, 0xff]), 'euc-kr'), /not valid EUC-KR/);
+  for (const encoding of ['latin1', 'utf8', '', null]) assert.throws(() => decodeText(korean, encoding), /Unsupported text encoding/);
+});
+
+test('delimiter detection reads only the header record and ignores quoted separators', () => {
+  assert.equal(detectDelimiter('account;amount\nA;1,5'), ';');
+  assert.equal(detectDelimiter('account\tamount\nA\t1'), '\t');
+  assert.equal(detectDelimiter('\uFEFF\r\n\naccount,amount;x\n'), ',');
+  assert.equal(detectDelimiter('"a;b;c",amount\n'), ',');
+  assert.equal(detectDelimiter('"a,b";amount\n'), ';');
+  assert.equal(detectDelimiter('a,b;c\n'), ',', 'Ties keep the comma default.');
+  assert.equal(detectDelimiter('account'), ',');
+  assert.equal(detectDelimiter(''), ',');
+  assert.throws(() => detectDelimiter(null), /string/);
+});
+
+test('input errors name the offending value and count every problem in the file', () => {
+  const empty = csv('account,amount');
+  assert.throws(
+    () => reconcile(csv('account,amount\na,1\nb,"1,000"\nc,\nd,1e3'), empty),
+    /^Error: Before CSV record 3, column "amount" must be a decimal number .*; found "1,000"\. 2 more values in this column are invalid\.$/,
+  );
+  assert.throws(() => reconcile(empty, csv('account,amount\na,x')), /After CSV record 2, .*found "x"\.$/);
+  assert.throws(() => reconcile(csv('account,amount\na,1\na,2\nb,3\nb,4\na,5'), empty), /record 3 has duplicate key \["a"\]\. 2 more records repeat keys\./);
+  assert.throws(() => reconcile(csv('account,amount\n ,1\n,2'), empty), /record 2 has a blank key\. 1 more record has a blank key\./);
+  const long = 'x'.repeat(80);
+  assert.throws(() => reconcile({ headers: ['account', 'amount'], rows: [['a', long]] }, empty), new RegExp(`found "${'x'.repeat(39)}…"`));
+});
+
+test('mapping inspection previews the same checks without throwing for data problems', () => {
+  const dataset = csv('account,service,amount\na,x,1\na,y,2\na,x,oops\n ,x,3\nb,x,"1,200.00"');
+  const rows = inspectMapping(dataset, { keys: ['account'], value: 'amount' });
+  assert.equal(rows.rows, 5);
+  assert.deepEqual(rows.missing, []);
+  assert.deepEqual(rows.blankKeys, { count: 1, examples: [{ record: 5, key: [' '] }] });
+  assert.deepEqual(rows.duplicateKeys, { count: 2, examples: [{ record: 3, key: ['a'] }, { record: 4, key: ['a'] }] });
+  assert.equal(rows.invalidValues.count, 2);
+  assert.deepEqual(rows.invalidValues.examples.map(example => [example.record, example.value]), [[4, 'oops'], [6, '1,200.00']]);
+  const composite = inspectMapping(dataset, { keys: ['account', 'service'], value: 'amount' });
+  assert.equal(composite.duplicateKeys.count, 1);
+  const grouped = inspectMapping(dataset, { keys: ['account'], value: 'amount', aggregate: true });
+  assert.equal(grouped.duplicateKeys.count, 0);
+  assert.equal(grouped.keys, 2);
+  assert.deepEqual(inspectMapping(dataset, { keys: ['missing'], value: 'total' }).missing, ['missing', 'total']);
+  assert.throws(() => inspectMapping(dataset, { keys: [], value: 'amount' }), /key columns/);
+  assert.throws(() => inspectMapping(null, { keys: ['account'], value: 'amount' }), /parsed CSV/);
+});
+
+test('exact decimal checks match the comparison rules', () => {
+  for (const value of ['0', '-0.00', '12.50', '1'.repeat(30), '0.000000000001']) assert.equal(isExactDecimal(value), true, value);
+  for (const value of ['', ' 1', '1,000', '+1', '.5', '1e3', '1'.repeat(31), '0.0000000000001', null, 1]) assert.equal(isExactDecimal(value), false, String(value));
+});
+
+test('movement summary splits offsetting changes and measures concentration exactly', () => {
+  const read = name => parseCSV(readFileSync(new URL(`../examples/${name}`, import.meta.url), 'utf8'));
+  const report = reconcile(read('before.csv'), read('after.csv'));
+  assert.deepEqual(summarizeMovement(report), {
+    increased: { count: 1, total: '8000.00' },
+    decreased: { count: 1, total: '-7600.00' },
+    gross: '44600.00',
+    moving: 5,
+    largest: { count: 3, total: '29000.00', percent: '65.0' },
+  });
+  const tiny = compare('account,amount\na,100\nb,100\nc,0.01', 'account,amount\na,200\nb,0\nc,0.02');
+  assert.deepEqual(summarizeMovement(tiny, 2).largest, { count: 2, total: '200.00', percent: '99.9' }, 'Shares round down.');
+  const same = compare('account,amount\na,1', 'account,amount\na,1.0');
+  assert.deepEqual(summarizeMovement(same), {
+    increased: { count: 0, total: '0.0' }, decreased: { count: 0, total: '0.0' }, gross: '0.0', moving: 0,
+    largest: { count: 0, total: '0.0', percent: null },
+  });
+});
+
+test('similar-key hints pair added and removed keys without changing exact matching', () => {
+  const report = compare(
+    'account,region,amount\nGrove ,KR,1\nAtlas,US,2\nCedar,EU,3\nBirch,EU,4',
+    'account,region,amount\ngrove,KR,1\nＡｔｌａｓ,US,2\nCedar,eu ,3\nPine,EU,4',
+    { keys: ['account', 'region'] },
+  );
+  assert.equal(report.counts.added, 4);
+  assert.equal(report.counts.removed, 4);
+  const similar = findSimilarKeys(report);
+  assert.equal(similar.count, 3);
+  assert.deepEqual(similar.examples[0], { removed: ['Grove ', 'KR'], added: ['grove', 'KR'] });
+  assert.equal(findSimilarKeys(report, 1).examples.length, 1);
+  assert.deepEqual(findSimilarKeys(compare('account,amount\na,1', 'account,amount\nb,1')), { count: 0, examples: [] });
 });

@@ -5,7 +5,7 @@ import { constants } from 'node:fs';
 import { link, lstat, mkdir, open, realpath, rename, unlink } from 'node:fs/promises';
 import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { parseCSV, reconcile } from '../src/engine.mjs';
+import { decodeText, detectDelimiter, parseCSV, reconcile } from '../src/engine.mjs';
 import { renderApp } from '../src/render.mjs';
 import { renderChangesCSV, renderMarkdown } from '../src/exports.mjs';
 
@@ -15,6 +15,7 @@ const HELP = `Rowglass ${VERSION} — explain the difference between two CSV tot
 
 Usage:
   rowglass before.csv after.csv --key account --value amount --out report.html
+  rowglass before.csv after.csv --key account --value amount --markdown summary.md
   rowglass demo --out report.html
   rowglass app --out rowglass.html
 
@@ -23,11 +24,16 @@ Options:
   --group-by COLUMN    Sum rows by this column; repeat for several columns.
                        Use instead of --key for nonunique source keys.
   --value COLUMN       Numeric column to reconcile.
-  --out PATH           Write a standalone HTML report (required).
-  --json PATH          Also write the reconciliation as JSON.
-  --csv PATH           Also write every changed row or group as CSV.
-  --markdown PATH      Also write a Markdown summary.
-  --delimiter FORMAT   comma (default) or tab.
+  --out PATH           Write a standalone HTML report.
+  --json PATH          Write the reconciliation as JSON.
+  --csv PATH           Write every changed row or group as CSV.
+  --markdown PATH      Write a Markdown summary.
+                       Comparisons need at least one of these outputs;
+                       app and demo need --out.
+  --delimiter FORMAT   comma (default), tab, semicolon, or auto. auto
+                       detects each file from its header row.
+  --encoding NAME      utf-8 (default) or euc-kr. Use euc-kr for CSV files
+                       saved by Korean editions of Excel (CP949).
   --fail-on-change     Exit 2 for added, removed, or changed rows/groups.
   --force              Replace existing output files.
   --help, -h           Show this help.
@@ -49,11 +55,12 @@ function parseArguments(args) {
   if (args.length === 1 && ['--version', '-v'].includes(args[0])) return { command: 'version' };
   if (!args.length) fail('No command or CSV files supplied. Run rowglass --help for usage.');
 
-  const options = { command: 'compare', keys: [], groupBy: [], delimiter: ',', force: false, failOnChange: false };
+  const options = { command: 'compare', keys: [], groupBy: [], delimiter: ',', encoding: 'utf-8', force: false, failOnChange: false };
   const values = new Map([
     ['--key', 'keys'], ['--group-by', 'groupBy'], ['--value', 'value'], ['--out', 'out'],
-    ['--json', 'json'], ['--csv', 'csv'], ['--markdown', 'markdown'], ['--delimiter', 'delimiter'],
+    ['--json', 'json'], ['--csv', 'csv'], ['--markdown', 'markdown'], ['--delimiter', 'delimiter'], ['--encoding', 'encoding'],
   ]);
+  const delimiters = new Map([['comma', ','], ['tab', '\t'], ['semicolon', ';'], ['auto', 'auto']]);
   const switches = new Map([['--force', 'force'], ['--fail-on-change', 'failOnChange']]);
   const seen = new Set();
   const positional = [];
@@ -73,8 +80,11 @@ function parseArguments(args) {
       if (arg === '--key') options.keys.push(value);
       else if (arg === '--group-by') options.groupBy.push(value);
       else if (arg === '--delimiter') {
-        if (!['comma', 'tab'].includes(value)) fail('--delimiter must be comma or tab.');
-        options.delimiter = value === 'tab' ? '\t' : ',';
+        if (!delimiters.has(value)) fail('--delimiter must be comma, tab, semicolon, or auto.');
+        options.delimiter = delimiters.get(value);
+      } else if (arg === '--encoding') {
+        if (!['utf-8', 'euc-kr'].includes(value.toLowerCase())) fail('--encoding must be utf-8 or euc-kr.');
+        options.encoding = value.toLowerCase();
       } else options[values.get(arg)] = value;
     } else if (arg.startsWith('-')) {
       fail(`Unknown option: ${arg}. Run rowglass --help for usage.`);
@@ -82,8 +92,11 @@ function parseArguments(args) {
       positional.push(arg);
     }
   }
-  if (!options.out) fail('--out is required.');
+  if (options.command !== 'compare' && !options.out) fail('--out is required.');
   if (options.command === 'compare') {
+    if (!['out', 'json', 'csv', 'markdown'].some(option => options[option])) {
+      fail('Choose at least one output: --out, --json, --csv, or --markdown.');
+    }
     if (positional.length !== 2) fail('Supply exactly two input CSV paths.');
     if (!options.keys.length && !options.groupBy.length) fail('At least one --key or --group-by column is required.');
     if (options.keys.length && options.groupBy.length) fail('--key and --group-by cannot be used together.');
@@ -93,7 +106,7 @@ function parseArguments(args) {
     options.inputs = positional;
   } else {
     if (positional.length) fail(`${options.command} does not accept input CSV paths.`);
-    for (const flag of ['--key', '--group-by', '--value', '--delimiter']) {
+    for (const flag of ['--key', '--group-by', '--value', '--delimiter', '--encoding']) {
       if (seen.has(flag)) fail(`${flag} is not supported with ${options.command}.`);
     }
     if (options.command === 'app') {
@@ -131,7 +144,7 @@ async function canonicalPath(path) {
   }
 }
 
-async function readInput(path) {
+async function readInput(path, encoding) {
   const absolute = resolve(path);
   const handle = await open(absolute, 'r');
   try {
@@ -151,9 +164,11 @@ async function readInput(path) {
     }
     let text;
     try {
-      text = new TextDecoder('utf-8', { fatal: true }).decode(Buffer.concat(chunks, bytes));
+      text = decodeText(Buffer.concat(chunks, bytes), encoding);
     } catch {
-      fail(`Input must be valid UTF-8: ${path}`);
+      fail(encoding === 'utf-8'
+        ? `Input must be valid UTF-8: ${path}. For CSV files saved by Korean Excel, add --encoding euc-kr.`
+        : `Input must be valid EUC-KR (CP949): ${path}. Remove --encoding euc-kr for UTF-8 files.`);
     }
     return { text, path: absolute, canonical: await realpath(absolute), stat };
   } finally {
@@ -213,7 +228,7 @@ async function main() {
   if (options.command === 'help') return process.stdout.write(HELP);
   if (options.command === 'version') return process.stdout.write(`${VERSION}\n`);
 
-  const inputs = options.inputs ? await Promise.all(options.inputs.map(readInput)) : [];
+  const inputs = options.inputs ? await Promise.all(options.inputs.map(path => readInput(path, options.encoding))) : [];
   const outputs = [];
   for (const [option, label] of [['out', 'HTML'], ['json', 'JSON'], ['csv', 'CSV'], ['markdown', 'Markdown']]) {
     if (!options[option]) continue;
@@ -223,9 +238,10 @@ async function main() {
     outputs.push(output);
   }
 
+  const parse = text => parseCSV(text, { delimiter: options.delimiter === 'auto' ? detectDelimiter(text) : options.delimiter });
   const report = inputs.length ? reconcile(
-    parseCSV(inputs[0].text, { delimiter: options.delimiter }),
-    parseCSV(inputs[1].text, { delimiter: options.delimiter }),
+    parse(inputs[0].text),
+    parse(inputs[1].text),
     {
       keys: options.groupBy.length ? options.groupBy : options.keys,
       aggregate: options.groupBy.length > 0,
@@ -235,7 +251,12 @@ async function main() {
     },
   ) : null;
   for (const output of outputs) {
-    if (output.option === 'out') output.content = await renderApp(report, { sample: options.command === 'demo' });
+    if (output.option === 'out') {
+      output.content = await renderApp(report, {
+        sample: options.command === 'demo',
+        generatedAt: options.command === 'compare' ? new Date().toISOString() : null,
+      });
+    }
     else if (output.option === 'json') output.content = `${JSON.stringify(report, null, 2)}\n`;
     else if (output.option === 'csv') output.content = renderChangesCSV(report);
     else if (output.option === 'markdown') output.content = renderMarkdown(report);

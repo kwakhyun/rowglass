@@ -91,9 +91,9 @@ In group mode, `--fail-on-change` checks added groups, removed groups, and chang
 
 - HTML and JSON contain all compared rows or groups, including unchanged ones.
 - CSV contains every added, removed, or numerically changed row or group. It excludes unchanged results.
-- Markdown is a summary of the comparison. Use JSON or CSV when you need the complete result rather than a summary.
+- Markdown is a summary of the comparison, including increases and decreases among changed values. Use JSON or CSV when you need the complete result rather than a summary.
 
-`--out` remains required. Each output must have a different path, and existing files require `--force`. No output may replace an input file. Fresh hosted runners normally have no existing report files; use fresh artifact paths in reused workspaces.
+A comparison needs at least one of `--out`, `--json`, `--csv`, or `--markdown`; a job that only needs the summary can skip the HTML report. Each output must have a different path, and existing files require `--force`. No output may replace an input file. Fresh hosted runners normally have no existing report files; use fresh artifact paths in reused workspaces.
 
 ## Code and data access
 

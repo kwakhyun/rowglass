@@ -97,3 +97,17 @@ test('renderer preserves exact negative, zero, and very large totals in its seri
   assert.equal(state.report.totals.removed, '0.00');
   assert.equal(state.report.rows[1].status, 'removed');
 });
+
+test('generated time is validated and only stored for real comparisons', async () => {
+  const report = reconcile(
+    { headers: ['account', 'amount'], rows: [['a', '1']] },
+    { headers: ['account', 'amount'], rows: [['a', '2']] },
+  );
+  const when = '2026-11-07T06:30:00.000Z';
+  assert.equal(embeddedState(await renderApp(report, { generatedAt: when })).generatedAt, when);
+  assert.equal(embeddedState(await renderApp(report, { sample: true, generatedAt: when })).generatedAt, null);
+  assert.equal(embeddedState(await renderApp()).generatedAt, null);
+  for (const generatedAt of ['yesterday', 0, {}]) {
+    await assert.rejects(() => renderApp(report, { generatedAt }), /ISO date/);
+  }
+});

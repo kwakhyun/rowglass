@@ -4,6 +4,45 @@ export const MAX_ROWS = 100_000;
 export const MAX_TEXT_BYTES = 20 * 1024 * 1024;
 export const MAX_DECIMAL_PLACES = 12;
 export const MAX_INTEGER_DIGITS = 30;
+export const TEXT_ENCODINGS = Object.freeze(['utf-8', 'euc-kr']);
+export const DETECTABLE_DELIMITERS = Object.freeze([',', '\t', ';']);
+
+/**
+ * Strictly decode file bytes. The WHATWG euc-kr decoder also covers the CP949
+ * (Unified Hangul Code) files that Korean Windows editions of Excel save as CSV.
+ * Invalid byte sequences fail instead of producing replacement characters.
+ */
+export function decodeText(bytes, encoding = 'utf-8') {
+  if (!TEXT_ENCODINGS.includes(encoding)) {
+    throw new Error(`Unsupported text encoding ${JSON.stringify(String(encoding))}. Use utf-8 or euc-kr.`);
+  }
+  try {
+    return new TextDecoder(encoding, { fatal: true }).decode(bytes);
+  } catch {
+    throw new Error(encoding === 'utf-8' ? 'File is not valid UTF-8 text.' : 'File is not valid EUC-KR (CP949) text.');
+  }
+}
+
+/**
+ * Choose the comma, tab, or semicolon that appears most often outside quotes in
+ * the header record. Ties and headers without a candidate keep the comma default.
+ */
+export function detectDelimiter(text) {
+  if (typeof text !== 'string') throw new TypeError('CSV input must be a string.');
+  const counts = new Map(DETECTABLE_DELIMITERS.map((delimiter) => [delimiter, 0]));
+  let position = text.charCodeAt(0) === 0xfeff ? 1 : 0;
+  while (text[position] === '\r' || text[position] === '\n') position += 1;
+  let quoted = false;
+  for (; position < text.length; position += 1) {
+    const char = text[position];
+    if (char === '"') quoted = !quoted;
+    else if (!quoted && (char === '\r' || char === '\n')) break;
+    else if (!quoted && counts.has(char)) counts.set(char, counts.get(char) + 1);
+  }
+  let best = ',';
+  for (const delimiter of DETECTABLE_DELIMITERS) if (counts.get(delimiter) > counts.get(best)) best = delimiter;
+  return best;
+}
 
 function validateHeaders(headers, label) {
   if (!Array.isArray(headers) || headers.length === 0) {
@@ -120,16 +159,134 @@ function validateDataset(dataset, label) {
   }
 }
 
-function parseDecimal(value, label) {
-  if (!/^-?\d+(?:\.\d+)?$/.test(value)) {
-    throw new Error(`${label} must be a decimal number without blanks, spaces, exponents, or grouping separators.`);
+function decimalProblem(value) {
+  if (typeof value !== 'string' || !/^-?\d+(?:\.\d+)?$/.test(value)) {
+    return 'must be a decimal number without blanks, spaces, exponents, or grouping separators';
   }
+  const [integer, fraction = ''] = value.replace(/^-/, '').split('.');
+  if (integer.length > MAX_INTEGER_DIGITS) return 'exceeds the 30 integer digit limit';
+  if (fraction.length > MAX_DECIMAL_PLACES) return 'exceeds the 12 decimal place limit';
+  return '';
+}
+
+/** True when a cell is an exact decimal that Rowglass can total without conversion. */
+export function isExactDecimal(value) {
+  return decimalProblem(value) === '';
+}
+
+// Only called after decimalProblem() accepted the value.
+function parseDecimal(value) {
   const negative = value.startsWith('-');
   const [integer, fraction = ''] = (negative ? value.slice(1) : value).split('.');
-  if (integer.length > MAX_INTEGER_DIGITS) throw new Error(`${label} exceeds the 30 integer digit limit.`);
-  if (fraction.length > MAX_DECIMAL_PLACES) throw new Error(`${label} exceeds the 12 decimal place limit.`);
   const coefficient = BigInt(integer + fraction) * (negative ? -1n : 1n);
   return { coefficient, scale: fraction.length };
+}
+
+const ISSUE_EXAMPLES = 3;
+
+function quoteCell(value) {
+  return JSON.stringify(value.length > 40 ? `${value.slice(0, 39)}…` : value);
+}
+
+function noteIssue(issue, example) {
+  issue.count += 1;
+  if (issue.examples.length < ISSUE_EXAMPLES) issue.examples.push(example);
+}
+
+function validateMappingOptions(keys, value) {
+  if (!Array.isArray(keys) || keys.length === 0 || keys.some((key) => typeof key !== 'string' || key.trim() === '') || new Set(keys).size !== keys.length) {
+    throw new Error('Choose one or more distinct, nonempty key columns.');
+  }
+  if (typeof value !== 'string' || value.trim() === '') throw new Error('Choose a nonempty value column.');
+}
+
+/**
+ * Scan every record once. Problems are counted rather than thrown so callers can
+ * report the full extent of an input issue; records are only built while clean.
+ */
+function scanDataset(dataset, { keys, value, aggregate }, build) {
+  const scan = {
+    rows: dataset.rows.length,
+    keys: 0,
+    missing: [...keys, value].filter((column) => !dataset.headers.includes(column)),
+    blankKeys: { count: 0, examples: [] },
+    duplicateKeys: { count: 0, examples: [] },
+    invalidValues: { count: 0, examples: [] },
+  };
+  const records = new Map();
+  let scale = 0;
+  if (scan.missing.length) return { scan, records, scale };
+  const keyIndices = keys.map((key) => dataset.headers.indexOf(key));
+  const valueIndex = dataset.headers.indexOf(value);
+  const seen = new Set();
+  for (let index = 0; index < dataset.rows.length; index += 1) {
+    const row = dataset.rows[index];
+    const record = index + 2;
+    const key = keyIndices.map((column) => row[column]);
+    const raw = row[valueIndex];
+    const problem = decimalProblem(raw);
+    if (problem) noteIssue(scan.invalidValues, { record, value: raw, problem });
+    if (key.some((part) => part.trim() === '')) {
+      noteIssue(scan.blankKeys, { record, key });
+      continue;
+    }
+    const identity = JSON.stringify(key);
+    if (seen.has(identity) && !aggregate) {
+      noteIssue(scan.duplicateKeys, { record, key });
+      continue;
+    }
+    seen.add(identity);
+    if (!build || scan.invalidValues.count || scan.blankKeys.count || scan.duplicateKeys.count) continue;
+    const decimal = parseDecimal(raw);
+    scale = Math.max(scale, decimal.scale);
+    const existing = records.get(identity);
+    if (existing) {
+      const groupScale = Math.max(existing.decimal.scale, decimal.scale);
+      existing.decimal = {
+        coefficient: existing.decimal.coefficient * 10n ** BigInt(groupScale - existing.decimal.scale)
+          + decimal.coefficient * 10n ** BigInt(groupScale - decimal.scale),
+        scale: groupScale,
+      };
+      existing.count += 1;
+    } else {
+      records.set(identity, { key, decimal, count: 1 });
+    }
+  }
+  scan.keys = seen.size;
+  return { scan, records, scale };
+}
+
+function scanError(scan, label, value) {
+  if (scan.missing.length) return `${label} is missing column ${JSON.stringify(scan.missing[0])}.`;
+  const more = (issue, one, many) => {
+    const extra = issue.count - 1;
+    return extra > 0 ? ` ${extra.toLocaleString('en-US')} more ${extra === 1 ? one : many}.` : '';
+  };
+  const { blankKeys, duplicateKeys, invalidValues } = scan;
+  if (blankKeys.count) {
+    return `${label} record ${blankKeys.examples[0].record} has a blank key.${more(blankKeys, 'record has a blank key', 'records have blank keys')}`;
+  }
+  if (duplicateKeys.count) {
+    const [first] = duplicateKeys.examples;
+    return `${label} record ${first.record} has duplicate key ${JSON.stringify(first.key)}.${more(duplicateKeys, 'record repeats a key', 'records repeat keys')}`;
+  }
+  if (invalidValues.count) {
+    const [first] = invalidValues.examples;
+    return `${label} record ${first.record}, column ${JSON.stringify(value)} ${first.problem}; found ${quoteCell(first.value)}.${more(invalidValues, 'value in this column is invalid', 'values in this column are invalid')}`;
+  }
+  return '';
+}
+
+/**
+ * Preview a key/value mapping before comparing. Returns row and distinct key
+ * counts, missing columns, and counts with up to three examples of blank keys,
+ * duplicate keys (unique-row mode only), and invalid numbers. Data problems are
+ * reported, never thrown.
+ */
+export function inspectMapping(dataset, { keys, value, aggregate = false } = {}) {
+  if (!dataset || !Array.isArray(dataset.headers) || !Array.isArray(dataset.rows)) throw new Error('Inspect a parsed CSV dataset.');
+  validateMappingOptions(keys, value);
+  return scanDataset(dataset, { keys, value, aggregate: aggregate === true }, false).scan;
 }
 
 /** Format an integer coefficient at the given decimal scale, without rounding. */
@@ -157,10 +314,7 @@ export function formatDecimal(coefficient, scale = 0) {
  */
 export function reconcile(beforeDataset, afterDataset, options = {}) {
   const { keys = ['account'], value = 'amount', beforeName = 'before.csv', afterName = 'after.csv', aggregate = false } = options;
-  if (!Array.isArray(keys) || keys.length === 0 || keys.some((key) => typeof key !== 'string' || key.trim() === '') || new Set(keys).size !== keys.length) {
-    throw new Error('Choose one or more distinct, nonempty key columns.');
-  }
-  if (typeof value !== 'string' || value.trim() === '') throw new Error('Choose a nonempty value column.');
+  validateMappingOptions(keys, value);
   if (typeof beforeName !== 'string' || typeof afterName !== 'string') throw new Error('Dataset names must be strings.');
   if (typeof aggregate !== 'boolean') throw new TypeError('The aggregate option must be a boolean.');
   validateDataset(beforeDataset, 'Before CSV');
@@ -168,34 +322,11 @@ export function reconcile(beforeDataset, afterDataset, options = {}) {
 
   let scale = 0;
   const read = (dataset, label) => {
-    for (const column of [...keys, value]) {
-      if (!dataset.headers.includes(column)) throw new Error(`${label} is missing column ${JSON.stringify(column)}.`);
-    }
-    const keyIndices = keys.map((key) => dataset.headers.indexOf(key));
-    const valueIndex = dataset.headers.indexOf(value);
-    const records = new Map();
-    for (let index = 0; index < dataset.rows.length; index += 1) {
-      const row = dataset.rows[index];
-      const key = keyIndices.map((column) => row[column]);
-      if (key.some((part) => part.trim() === '')) throw new Error(`${label} record ${index + 2} has a blank key.`);
-      const identity = JSON.stringify(key);
-      const existing = records.get(identity);
-      if (existing && !aggregate) throw new Error(`${label} record ${index + 2} has duplicate key ${identity}.`);
-      const decimal = parseDecimal(row[valueIndex], `${label} record ${index + 2}, column ${JSON.stringify(value)}`);
-      scale = Math.max(scale, decimal.scale);
-      if (existing) {
-        const groupScale = Math.max(existing.decimal.scale, decimal.scale);
-        existing.decimal = {
-          coefficient: existing.decimal.coefficient * 10n ** BigInt(groupScale - existing.decimal.scale)
-            + decimal.coefficient * 10n ** BigInt(groupScale - decimal.scale),
-          scale: groupScale,
-        };
-        existing.count += 1;
-      } else {
-        records.set(identity, { key, decimal, count: 1 });
-      }
-    }
-    return records;
+    const result = scanDataset(dataset, { keys, value, aggregate }, true);
+    const message = scanError(result.scan, label, value);
+    if (message) throw new Error(message);
+    scale = Math.max(scale, result.scale);
+    return result.records;
   };
 
   const before = read(beforeDataset, 'Before CSV');
@@ -248,4 +379,72 @@ export function reconcile(beforeDataset, afterDataset, options = {}) {
     },
     rows,
   };
+}
+
+function reportUnits(value) {
+  return BigInt(value.replace('.', ''));
+}
+
+/**
+ * Exact gross movement for a report. Matched changes are split into increases and
+ * decreases so offsetting edits stay visible, and the largest absolute differences
+ * are compared with the sum of every absolute difference (not the net change).
+ */
+export function summarizeMovement(report, top = 3) {
+  const increased = { count: 0, units: 0n };
+  const decreased = { count: 0, units: 0n };
+  const magnitudes = [];
+  let gross = 0n;
+  for (const row of report.rows) {
+    const delta = reportUnits(row.delta);
+    const magnitude = delta < 0n ? -delta : delta;
+    if (magnitude === 0n) continue;
+    gross += magnitude;
+    magnitudes.push(magnitude);
+    if (row.status === 'changed') {
+      const side = delta > 0n ? increased : decreased;
+      side.count += 1;
+      side.units += delta;
+    }
+  }
+  magnitudes.sort((a, b) => (a > b ? -1 : a < b ? 1 : 0));
+  const count = Math.min(top, magnitudes.length);
+  const largest = magnitudes.slice(0, count).reduce((sum, magnitude) => sum + magnitude, 0n);
+  // Round down so a share is never overstated, e.g. 99.97% is shown as 99.9%.
+  const tenths = gross === 0n ? null : (largest * 1000n) / gross;
+  return {
+    increased: { count: increased.count, total: formatDecimal(increased.units, report.scale) },
+    decreased: { count: decreased.count, total: formatDecimal(decreased.units, report.scale) },
+    gross: formatDecimal(gross, report.scale),
+    moving: magnitudes.length,
+    largest: { count, total: formatDecimal(largest, report.scale), percent: tenths === null ? null : `${tenths / 10n}.${tenths % 10n}` },
+  };
+}
+
+function looseKeyPart(part) {
+  return part.normalize('NFKC').trim().replace(/\s+/gu, ' ').toLowerCase();
+}
+
+/**
+ * Pair removed and added keys that differ only by letter case, repeated or
+ * surrounding whitespace, or Unicode compatibility forms such as full-width
+ * letters. Matching itself stays exact; this only flags likely source typos.
+ */
+export function findSimilarKeys(report, limit = 3) {
+  const result = { count: 0, examples: [] };
+  const removed = new Map();
+  for (const row of report.rows) {
+    if (row.status !== 'removed') continue;
+    const loose = JSON.stringify(row.key.map(looseKeyPart));
+    if (!removed.has(loose)) removed.set(loose, row);
+  }
+  if (!removed.size) return result;
+  for (const row of report.rows) {
+    if (row.status !== 'added') continue;
+    const match = removed.get(JSON.stringify(row.key.map(looseKeyPart)));
+    if (!match) continue;
+    result.count += 1;
+    if (result.examples.length < limit) result.examples.push({ removed: [...match.key], added: [...row.key] });
+  }
+  return result;
 }

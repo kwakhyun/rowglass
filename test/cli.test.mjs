@@ -147,7 +147,12 @@ test('strict argument validation never creates an output', async t => {
     [...compare, '--group-by', 'region'],
     [...compare, '--csv', 'report.csv', '--csv', 'again.csv'],
     [...compare, '--markdown', 'report.md', '--markdown', 'again.md'],
-    [...compare, '--delimiter', 'semicolon'],
+    [...compare, '--delimiter', 'pipe'],
+    [...compare, '--encoding', 'latin1'],
+    [...compare, '--encoding', 'utf-8', '--encoding', 'euc-kr'],
+    ['app', '--out', 'report.html', '--encoding', 'euc-kr'],
+    ['app', '--json', 'report.json'],
+    ['before.csv', 'after.csv', '--key', 'account', '--value', 'amount'],
     [...compare, '--out', 'second.html'],
     [...compare, '--key', 'account'],
     [...compare, '--force', '--force'],
@@ -162,8 +167,6 @@ test('strict argument validation never creates an output', async t => {
     ['demo', '--out', 'report.html', '--key', 'account'],
     ['demo', '--out', 'report.html', '--group-by', 'account'],
     ['before.csv', 'after.csv', '--group-by', 'account', '--group-by', 'account', '--value', 'amount', '--out', 'report.html'],
-    ['before.csv', 'after.csv', '--key', 'account', '--value', 'amount', '--csv', 'report.csv'],
-    ['before.csv', 'after.csv', '--key', 'account', '--value', 'amount', '--markdown', 'report.md'],
     ['app', '--out', 'report.html', 'unexpected.csv'],
     [],
   ];
@@ -362,4 +365,55 @@ test('added and removed zero-sum groups still trigger --fail-on-change', async t
   const result = run(['before.csv', 'after.csv', '--group-by', 'account', '--value', 'amount', '--out', 'report.html', '--fail-on-change'], dir);
   assert.equal(result.status, 2, result.stderr);
   assert.match(result.stdout, /Groups: 1 added, 1 removed, 0 changed/);
+});
+
+test('Korean Excel exports need an explicit EUC-KR encoding', async t => {
+  const dir = await fixture(t);
+  // "고객,매출" header with Korean keys, encoded as CP949.
+  const encode = rows => Buffer.concat([Buffer.from([0xb0, 0xed, 0xb0, 0xb4, 0x2c, 0xb8, 0xc5, 0xc3, 0xe2, 0x0a]), Buffer.from(rows)]);
+  await writeFile(join(dir, 'before.csv'), encode([0xb0, 0xa1, 0x2c, 0x31, 0x0a])); // 가,1
+  await writeFile(join(dir, 'after.csv'), encode([0xb0, 0xa1, 0x2c, 0x33, 0x0a])); // 가,3
+  const args = ['before.csv', 'after.csv', '--key', '고객', '--value', '매출', '--json', 'report.json'];
+  const refused = run(args, dir);
+  assert.equal(refused.status, 1);
+  assert.match(refused.stderr, /UTF-8.*--encoding euc-kr/);
+  assert.equal(existsSync(join(dir, 'report.json')), false);
+  const result = run([...args, '--encoding', 'euc-kr'], dir);
+  assert.equal(result.status, 0, result.stderr);
+  const report = JSON.parse(await readFile(join(dir, 'report.json'), 'utf8'));
+  assert.deepEqual(report.rows[0], { key: ['가'], before: '1', after: '3', delta: '2', status: 'changed' });
+  await writeFile(join(dir, 'before.csv'), Buffer.from([0x61, 0xff, 0xff]));
+  const invalid = run([...args, '--encoding', 'euc-kr', '--force'], dir);
+  assert.equal(invalid.status, 1);
+  assert.match(invalid.stderr, /EUC-KR/);
+});
+
+test('semicolon and automatically detected separators are supported', async t => {
+  const dir = await fixture(t);
+  await writeFile(join(dir, 'before.csv'), 'account;amount\nalpha;1.10\nbeta;2\n');
+  await writeFile(join(dir, 'after.csv'), 'account\tamount\nalpha\t1.30\nbeta\t2\n');
+  const base = ['before.csv', 'after.csv', '--key', 'account', '--value', 'amount', '--json', 'report.json', '--force'];
+  assert.equal(run([...base, '--delimiter', 'semicolon'], dir).status, 1, 'One explicit separator applies to both files.');
+  const auto = run([...base, '--delimiter', 'auto'], dir);
+  assert.equal(auto.status, 0, auto.stderr);
+  const report = JSON.parse(await readFile(join(dir, 'report.json'), 'utf8'));
+  assert.equal(report.totals.delta, '0.20');
+  await writeFile(join(dir, 'after.csv'), 'account;amount\nalpha;1.30\nbeta;2\n');
+  assert.equal(run([...base, '--delimiter', 'semicolon'], dir).status, 0);
+});
+
+test('comparisons can write only data outputs, and HTML reports record when they were made', async t => {
+  const dir = await fixture(t);
+  const markdownOnly = run(['before.csv', 'after.csv', '--key', 'account', '--value', 'amount', '--markdown', 'summary.md'], dir);
+  assert.equal(markdownOnly.status, 0, markdownOnly.stderr);
+  assert.match(await readFile(join(dir, 'summary.md'), 'utf8'), /# Rowglass comparison/);
+  assert.equal(existsSync(join(dir, 'report.html')), false);
+  const started = Date.now();
+  assert.equal(run(compare, dir).status, 0);
+  const html = await readFile(join(dir, 'report.html'), 'utf8');
+  const state = JSON.parse(html.match(/<script id="rowglass-data" type="application\/json">([\s\S]*?)<\/script>/)[1]);
+  assert.ok(Date.parse(state.generatedAt) >= started - 1000);
+  assert.equal(run(['demo', '--out', 'demo.html'], dir).status, 0);
+  const demo = await readFile(join(dir, 'demo.html'), 'utf8');
+  assert.match(demo, /"generatedAt":null/);
 });

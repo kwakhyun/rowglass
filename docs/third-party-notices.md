@@ -2,7 +2,7 @@
 
 ## Lucide icons
 
-Rowglass bundles ten SVG icons from the official [Lucide repository](https://github.com/lucide-icons/lucide). The SVG geometry is copied unchanged. The wrapper adds configurable dimensions, a CSS class, and decorative accessibility attributes.
+Rowglass bundles twelve SVG icons from the official [Lucide repository](https://github.com/lucide-icons/lucide). The SVG geometry is copied unchanged. The wrapper adds configurable dimensions, a CSS class, and decorative accessibility attributes.
 
 Lucide uses the ISC License. Its upstream license also includes the MIT License for icons derived from Feather. Of this bundled subset, `arrow-right`, `arrow-up-right`, `check`, `chevron-right`, `download`, `plus`, `search`, and `x` appear in that Feather list. Both notices are reproduced below.
 
@@ -20,6 +20,8 @@ Sources were retrieved from the official repository's `main` branch. The Git blo
 | `check` | [Source](https://github.com/lucide-icons/lucide/blob/main/icons/check.svg) | `5abe1527434e7b251bde0661f99af96178976d8c` |
 | `arrow-up-right` | [Source](https://github.com/lucide-icons/lucide/blob/main/icons/arrow-up-right.svg) | `93bdeea23865b4b238dd3038414160949a10f925` |
 | `file-spreadsheet` | [Source](https://github.com/lucide-icons/lucide/blob/main/icons/file-spreadsheet.svg) | `8b0b91d4b4c6fb820c436effa22eada8de59ce09` |
+| `arrow-left-right` | [Source](https://github.com/lucide-icons/lucide/blob/main/icons/arrow-left-right.svg) | `acf2cb39ac824a91ac20dffb0367e37ddf1954b2` |
+| `copy` | [Source](https://github.com/lucide-icons/lucide/blob/main/icons/copy.svg) | `f62ce99c1f34989a5f70cd15192f8adf9140f4ed` |
 
 Upstream [LICENSE](https://github.com/lucide-icons/lucide/blob/main/LICENSE) Git blob SHA: `718bb3f0e44153809972abed31839375804bf652`.
 

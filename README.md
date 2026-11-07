@@ -45,11 +45,13 @@ open dist/index.html
 
 There are no npm dependencies to install. The package has not been published to npm; use the checkout commands below.
 
-Select **Compare files**, choose the before and after CSVs, and confirm the keys and **Column to total**. Expand **Add key columns** for a composite key. **Match unique rows** rejects duplicates; choose **Group & sum** explicitly when repeated line items should be summed. For TSV, expand **File format and limits** and change the separator. Select **Compare files** again to see the result. The **Try line-item costs** example demonstrates grouping without uploading a file.
+Select **Compare files**, choose the before and after CSVs, and confirm the keys and **Column to total**. You can also drop both files anywhere on the page; they are ordered by file name, and the swap button reverses them. Comma, tab, and semicolon separators are detected from the header row. Files saved as “CSV” by Korean editions of Excel use EUC-KR (CP949): when a file is not valid UTF-8, select **Read as Korean (EUC-KR)** or choose the encoding under **File format and limits**.
 
-The total change comes first, followed by added rows, removed rows, and changed values. Select a group to filter the rows, search by key, sort by impact, or inspect the original values. On mobile, each row shows its difference and before/after values together.
+Before you compare, Rowglass checks the selected columns in both files and reports blank keys, repeated keys, and values that are not plain numbers, with the first record and value of each problem. Numeric columns are listed first under **Column to total**. Expand **Add key columns** for a composite key. **Match unique rows** rejects duplicates; choose **Group & sum** explicitly when repeated line items should be summed—the check offers that switch when it finds repeated keys. Select **Compare files** again to see the result. The **Try line-item costs** example demonstrates grouping without uploading a file.
 
-**Download report** saves interactive HTML. **Export data** offers full JSON, every changed row as CSV, and a Markdown summary with the ten largest changes. Table filters never restrict exports. If you edit files or columns, apply or discard those changes before downloading. Printing includes the current table page, with its displayed range.
+The total change comes first, followed by added rows, removed rows, and changed values. Changed values show increases and decreases separately, so offsetting edits stay visible, and the movement summary compares the gross movement with the net change. When the changes are small next to the totals, the chart starts its axis near the totals and says so. The report also flags added and removed keys that differ only by letter case, spacing, or character width, and columns that exist in only one file. Select a group to filter the rows, search by key, sort by impact, or inspect the original values. On mobile, each row shows its difference and before/after values together.
+
+**Download report** saves interactive HTML that records when the comparison was made. **Export data** offers full JSON, every changed row as CSV, a Markdown summary with the ten largest changes, and **Copy Markdown** for pasting into an issue or chat. Downloads are named after the compared files. Table filters never restrict exports. If you edit files or columns, apply or discard those changes before downloading. Printing includes the current table page, with its displayed range.
 
 ## Use the CLI
 
@@ -57,7 +59,7 @@ The total change comes first, followed by added rows, removed rows, and changed 
 node bin/rowglass.mjs examples/before.csv examples/after.csv --key account --value amount --out report.html --json report.json
 ```
 
-Repeat `--key` for a composite key, and use `--delimiter tab` for TSV:
+Repeat `--key` for a composite key. Use `--delimiter tab` or `--delimiter semicolon`, or `--delimiter auto` to detect each file from its header row. Add `--encoding euc-kr` for CSV files saved by Korean editions of Excel:
 
 ```sh
 node bin/rowglass.mjs before.tsv after.tsv --key account --key region --value amount --delimiter tab --out report.html
@@ -79,7 +81,7 @@ node bin/rowglass.mjs app --out rowglass.html
 node bin/rowglass.mjs --help
 ```
 
-`--out` is required. Existing output files require `--force`; original input files cannot be replaced, even with that flag. The CLI does not open a browser automatically.
+A comparison needs at least one output: `--out`, `--json`, `--csv`, or `--markdown`. `demo` and `app` require `--out`. Existing output files require `--force`; original input files cannot be replaced, even with that flag. The CLI does not open a browser automatically.
 
 Add `--fail-on-change` for a script or CI job. Exit codes are:
 
@@ -105,21 +107,21 @@ Totals and row values use exact decimal arithmetic backed by integers. Chart pos
 
 | Input | Supported behavior |
 | --- | --- |
-| Files | UTF-8 CSV or TSV with a header, up to 20 MiB and 100,000 data rows per file. |
+| Files | UTF-8 or EUC-KR (CP949) text with a header row, separated by commas, tabs, or semicolons; up to 20 MiB and 100,000 data rows per file. |
 | CSV fields | Quoted delimiters, escaped quotes, multiline fields, LF/CRLF line endings, and a UTF-8 BOM. Empty physical lines are skipped. |
 | Keys | One or more nonblank columns, matched exactly including case and whitespace, in the browser, CLI, and API. Unique by default; explicitly grouped and summed in group mode. |
 | Metric | One decimal column, up to 30 integer digits and 12 decimal places per value. Negative values are supported. |
-| Validation | Duplicate or empty headers, malformed records, duplicate keys in unique-row mode, blank keys, missing selected columns, and invalid numbers stop the comparison. |
+| Validation | Duplicate or empty headers, malformed records, duplicate keys in unique-row mode, blank keys, missing selected columns, and invalid numbers stop the comparison. Messages name the first record and value, and count the remaining problems of that kind. |
 
 Numbers must look like `12`, `12.50`, or `-0.25`. Blanks, surrounding spaces, `+12`, `.5`, exponents, currency symbols, and thousands separators are rejected. No rounding, unit conversion, or currency conversion is performed; compare values with the same meaning and units.
 
-Added or removed column names are recorded. Changes to nonmetric cells are outside the comparison. Excel files, database connections, automatic key matching, and business-cause analysis are outside the current scope.
+Added or removed column names are recorded. Changes to nonmetric cells are outside the comparison. Keys are never normalized: the similar-key notice only points out likely typos. Excel files, database connections, automatic key matching, and business-cause analysis are outside the current scope.
 
 ## Local files and saved reports
 
 Rowglass runs locally without a server, uploads, network requests, or telemetry. Generated HTML contains its own code, styles, and report data.
 
-HTML and JSON include all compared keys and values, including unchanged results, plus filenames, column names, totals, and statuses. Group mode retains group sums and source row counts, not individual source rows. CSV contains every changed result; Markdown contains a summary and up to ten changes. Other cell values and raw source files are excluded. Review the included data before sharing.
+HTML and JSON include all compared keys and values, including unchanged results, plus filenames, column names, totals, and statuses. HTML also records when the comparison was made. Group mode retains group sums and source row counts, not individual source rows. CSV contains every changed result; Markdown contains a summary, increases and decreases among changed values, and up to ten changes. Other cell values and raw source files are excluded. Review the included data before sharing.
 
 CSV keys that could be interpreted as spreadsheet formulas are prefixed with an apostrophe. This deliberately alters those exported keys; JSON retains their original text.
 
@@ -144,6 +146,8 @@ console.log(report.rows[0].status); // "changed"
 ```
 
 `parseCSV(text, { delimiter: '\t' })` parses TSV and returns `{ headers, rows }`. `reconcile()` returns decimal strings in `totals` and `rows`, numeric row `counts`, added and removed column names in `schema`, and the selected keys and metric. Missing before/after values are `null`. Both functions throw on invalid input.
+
+`decodeText(bytes, 'euc-kr')` decodes Korean Excel exports strictly, and `detectDelimiter(text)` picks a comma, tab, or semicolon from the header row. `inspectMapping(dataset, { keys, value, aggregate })` previews blank keys, repeated keys, and invalid numbers without throwing. For a finished report, `summarizeMovement(report)` splits changed values into increases and decreases and measures how much of the gross movement the largest changes explain, and `findSimilarKeys(report)` pairs added and removed keys that differ only by case, spacing, or character width.
 
 Pass `aggregate: true` to `reconcile()` to sum by `keys`. The result adds `aggregation: 'sum'` and `sourceCounts`; each row adds `beforeCount` and `afterCount`. Existing `counts` then count groups. Use `renderChangesCSV(report)` and `renderMarkdown(report)` from `src/exports.mjs` for the same text exports as the browser and CLI.
 

@@ -68,6 +68,25 @@ function rowglassExportMagnitude(decimal) {
   return { coefficient: BigInt(integer + fraction), scale: fraction.length };
 }
 
+// Matched changes split by direction, so offsetting edits stay visible in the summary.
+function rowglassExportDirections(rows, scale) {
+  const sides = { increases: { count: 0, units: 0n }, decreases: { count: 0, units: 0n } };
+  for (const row of rows) {
+    if (row.status !== 'changed') continue;
+    const delta = BigInt(rowglassExportDecimal(row.delta).replace('.', ''));
+    const side = delta > 0n ? sides.increases : delta < 0n ? sides.decreases : null;
+    if (!side) continue;
+    side.count += 1;
+    side.units += delta;
+  }
+  const format = units => {
+    const sign = units < 0n ? '-' : '';
+    const digits = (units < 0n ? -units : units).toString().padStart(scale + 1, '0');
+    return sign + (scale ? digits.slice(0, -scale) + '.' + digits.slice(-scale) : digits);
+  };
+  return Object.entries(sides).map(([name, side]) => ({ name, count: side.count, total: format(side.units) }));
+}
+
 function rowglassExportLargestChanges(rows) {
   return rows.map((row, index) => ({
     row, index, magnitude: rowglassExportMagnitude(row.delta),
@@ -109,6 +128,10 @@ export function renderMarkdown(report) {
   const unit = grouped ? 'groups' : 'rows';
   const changes = report.rows.filter(row => rowglassExportStatus(row.status) !== 'unchanged');
   const top = rowglassExportLargestChanges(changes);
+  if (!Number.isSafeInteger(report.scale) || report.scale < 0 || report.scale > 12) {
+    throw new TypeError('Exports require a report decimal scale from 0 to 12.');
+  }
+  const directions = rowglassExportDirections(changes, report.scale);
   const lines = [
     '# Rowglass comparison',
     '',
@@ -136,6 +159,7 @@ export function renderMarkdown(report) {
     '| --- | ---: | ---: |',
     ...['added', 'removed', 'changed'].map(status =>
       '| ' + status + ' | ' + rowglassExportCount(report.counts[status]) + ' | ' + rowglassExportDecimal(report.totals[status]) + ' |'),
+    ...directions.map(direction => '| changed: ' + direction.name + ' | ' + rowglassExportCount(direction.count) + ' | ' + direction.total + ' |'),
     '| unchanged | ' + rowglassExportCount(report.counts.unchanged) + ' | 0 |',
     '',
     '| Population | Before | After |',
